@@ -1,0 +1,6 @@
+{
+  "id":"base_gi_v001",
+  "body":{"style":"low_poly_chibi","height":1.4},
+  "clothing":{"shirt":"a_frame_white","underwear":"boxers_olive"},
+  "gear":{"helmet":null,"backpack":null,"webbing":null}
+}
