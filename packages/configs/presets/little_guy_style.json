@@ -1,0 +1,34 @@
+{
+  "source": "Derived from the uploaded proportion sheet and Little Guy references; first-pass values, ignoring gear where possible.",
+  "units": {
+    "H": "total character height",
+    "blender_total_height": 1.4
+  },
+  "ratios": {
+    "head_height": 0.42,
+    "body_height_neck_to_feet": 0.58,
+    "head_width_as_head_height": 0.98,
+    "head_depth": 0.47,
+    "shoulder_width": 0.78,
+    "foot_width_pair": 0.32,
+    "eye_top_from_top": 0.21,
+    "eye_center_from_top": 0.28,
+    "neck_from_top": 0.44,
+    "waist_from_top": 0.78,
+    "knee_from_top": 0.94,
+    "torso_height": 0.33,
+    "pelvis_height": 0.1,
+    "leg_height": 0.25,
+    "waist_width": 0.72,
+    "hip_width": 0.8,
+    "arm_length": 0.27,
+    "leg_width_thigh": 0.28,
+    "leg_width_calf": 0.24,
+    "foot_length": 0.36,
+    "eye_width": 0.06,
+    "eye_height": 0.14,
+    "eye_spacing": 0.24,
+    "ear_position_from_top": 0.3,
+    "ear_height": 0.16
+  }
+}

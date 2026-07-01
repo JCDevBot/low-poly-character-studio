@@ -9,3 +9,15 @@ Generate a base GI:
 - boxer shorts
 - A-frame undershirt
 - Blender export (.blend/.glb)
+
+
+## Style Studio
+
+Run the landmark-based StyleDNA editor:
+
+```bash
+pnpm install
+./scripts/build.sh -studio
+```
+
+See `docs/style-studio.md`.

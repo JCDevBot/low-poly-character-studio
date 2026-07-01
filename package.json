@@ -1,4 +1,8 @@
 {
-  "name":"low-poly-soldier-maker-studio",
-  "private":true
+  "name": "low-poly-character-studio",
+  "private": true,
+  "scripts": {
+    "studio": "pnpm --filter @low-poly-character-studio/style-studio dev",
+    "studio:build": "pnpm --filter @low-poly-character-studio/style-studio build"
+  }
 }
