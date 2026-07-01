@@ -1,6 +1,6 @@
 {
   "name": "@low-poly-character-studio/style-studio",
-  "version": "0.3.0",
+  "version": "0.7.0",
   "private": true,
   "type": "module",
   "scripts": {
@@ -13,7 +13,8 @@
     "vite": "^5.4.21",
     "typescript": "^5.4.0",
     "react": "^18.2.0",
-    "react-dom": "^18.2.0"
+    "react-dom": "^18.2.0",
+    "three": "^0.162.0"
   },
   "devDependencies": {}
 }

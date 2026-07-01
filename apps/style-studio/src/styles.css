@@ -1,6 +1,4 @@
-* {
-  box-sizing: border-box;
-}
+* { box-sizing: border-box; }
 
 body {
   margin: 0;
@@ -9,52 +7,43 @@ body {
   font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
 }
 
-button {
-  font: inherit;
-}
+button { font: inherit; }
 
-.app {
-  min-height: 100vh;
-}
+.app { min-height: 100vh; }
 
 .topbar {
-  height: 72px;
+  height: 62px;
   border-bottom: 1px solid #2b3143;
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: 0 18px;
+  padding: 0 14px;
   background: #151823;
 }
 
-h1 {
-  font-size: 21px;
-  margin: 0;
-}
-
+h1 { font-size: 21px; margin: 0; }
 h2 {
   text-transform: uppercase;
   letter-spacing: 0.13em;
   font-size: 14px;
   color: #c6cde1;
 }
-
-p {
-  margin: 4px 0 0;
-  color: #c6cde1;
+h3 {
+  font-size: 12px;
+  margin: 14px 0 6px;
+  color: #9ca9cb;
+  text-transform: uppercase;
+  letter-spacing: 0.12em;
 }
+p { margin: 4px 0 0; color: #c6cde1; }
 
-.actions {
-  display: flex;
-  gap: 10px;
-}
+.actions { display: flex; gap: 10px; }
 
-.actions button,
-.controls button {
+.actions button, .controls button, .primary {
   background: #24293a;
   border: 1px solid #3a425c;
   color: #fff;
-  padding: 10px 14px;
+  padding: 9px 12px;
   border-radius: 9px;
   cursor: pointer;
   font-weight: 700;
@@ -62,26 +51,22 @@ p {
 
 .layout {
   display: grid;
-  grid-template-columns: 280px minmax(420px, 1fr) 420px;
-  height: calc(100vh - 72px);
+  grid-template-columns: 262px minmax(520px, 1fr) 380px;
+  height: calc(100vh - 62px);
 }
 
 .panel {
   background: #1b1f2d;
   border-right: 1px solid #2b3143;
   overflow: auto;
-  padding: 18px;
-}
-
-.dnaPanel {
-  border-left: 1px solid #2b3143;
-  border-right: 0;
-}
-
-.reference,
-.landmark {
-  width: 100%;
   padding: 12px;
+}
+
+.dnaPanel { border-left: 1px solid #2b3143; border-right: 0; }
+
+.reference, .landmark {
+  width: 100%;
+  padding: 11px;
   margin-bottom: 8px;
   border-radius: 9px;
   background: #24293a;
@@ -92,8 +77,7 @@ p {
   font-weight: 700;
 }
 
-.reference.active,
-.landmark.active {
+.reference.active, .landmark.active {
   background: #453819;
   border-color: #f2ca4c;
 }
@@ -102,12 +86,10 @@ p {
   display: flex;
   justify-content: space-between;
   gap: 10px;
+  padding: 9px 10px;
 }
 
-.landmark small {
-  color: #cbd5ff;
-  font-weight: 500;
-}
+.landmark small { color: #cbd5ff; font-weight: 500; }
 
 .hint {
   font-size: 12px;
@@ -122,31 +104,32 @@ p {
   padding: 12px 0;
 }
 
-.controls button {
-  width: 100%;
-  margin-bottom: 8px;
-}
+.controls button { width: 100%; margin-bottom: 8px; }
+.controls p { font-size: 12px; line-height: 1.35; }
 
-.controls p {
-  font-size: 12px;
-  line-height: 1.35;
-}
-
-.workspace {
-  padding: 16px;
-  overflow: hidden;
-}
+.workspace { padding: 10px 16px; overflow: hidden; }
 
 .current {
-  padding: 12px 14px;
+  padding: 10px 14px;
   border-radius: 12px;
   background: #1b1f2d;
   border: 1px solid #30374d;
   margin-bottom: 10px;
 }
 
+.pill {
+  display: inline-block;
+  background: #5a4513;
+  border: 1px solid #f2ca4c;
+  color: #fff4b8;
+  border-radius: 999px;
+  padding: 2px 9px;
+  margin-right: 10px;
+  font-weight: 800;
+}
+
 .canvas {
-  height: calc(100vh - 150px);
+  height: calc(100vh - 136px);
   border-radius: 14px;
   border: 1px solid #30374d;
   background: #0d0f15;
@@ -156,14 +139,12 @@ p {
   touch-action: none;
 }
 
-.canvas.panning {
-  cursor: grabbing;
-}
+.canvas.panning { cursor: grabbing; }
 
 .imageLayer {
   position: absolute;
-  left: 20px;
-  top: 20px;
+  left: 0;
+  top: 0;
   transform-origin: top left;
 }
 
@@ -189,9 +170,7 @@ p {
   outline-color: #fff2b8;
 }
 
-.marker:active {
-  cursor: grabbing;
-}
+.marker:active { cursor: grabbing; }
 
 .label {
   position: absolute;
@@ -205,11 +184,96 @@ p {
   font-size: 12px;
 }
 
+.tabs {
+  display: flex;
+  gap: 6px;
+  margin-bottom: 12px;
+}
+
+.tab {
+  flex: 1;
+  padding: 8px;
+  border-radius: 8px;
+  border: 1px solid #3a425c;
+  background: #24293a;
+  color: #fff;
+  cursor: pointer;
+}
+
+.tab.active {
+  border-color: #f2ca4c;
+  background: #453819;
+}
+
+.buildPanel {
+  background: #11131a;
+  border: 1px solid #30374d;
+  border-radius: 12px;
+  padding: 14px;
+}
+
+.targetTabs {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 6px;
+  margin: 12px 0;
+}
+
+.targetTab {
+  padding: 9px 8px;
+  border-radius: 8px;
+  border: 1px solid #3a425c;
+  background: #24293a;
+  color: #fff;
+  cursor: pointer;
+  font-weight: 700;
+}
+
+.targetTab.active {
+  border-color: #f2ca4c;
+  background: #453819;
+}
+
+.targetDescription {
+  font-size: 13px;
+  min-height: 38px;
+}
+
+.primary {
+  width: 100%;
+  background: #5a4513;
+  border-color: #f2ca4c;
+  margin-top: 14px;
+}
+
+.status {
+  margin-top: 12px;
+  font-size: 13px;
+  line-height: 1.35;
+}
+
+.status.error { color: #ffb4a8; }
+.status.success { color: #a7f3b0; }
+
 pre {
   margin: 0;
   white-space: pre-wrap;
   word-break: break-word;
   color: #e7ecff;
-  font-size: 13px;
+  font-size: 12px;
   line-height: 1.35;
 }
+
+
+.previewPanel {
+  background: #11131a;
+  border: 1px solid #30374d;
+  border-radius: 12px;
+  overflow: hidden;
+}
+
+.preview3d {
+  width: 100%;
+  height: 340px;
+}
+

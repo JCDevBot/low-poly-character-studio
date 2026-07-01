@@ -21,3 +21,18 @@ pnpm install
 ```
 
 See `docs/style-studio.md`.
+
+
+## Local development
+
+Start the API and Style Studio together:
+
+```bash
+./scripts/build.sh -dev
+```
+
+Then open:
+
+```text
+http://localhost:5173/
+```

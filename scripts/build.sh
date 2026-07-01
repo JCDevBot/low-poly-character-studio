@@ -5,8 +5,16 @@ TARGET="human"
 
 while [[ $# -gt 0 ]]; do
   case "$1" in
+    -dev|--dev)
+      TARGET="dev"
+      shift
+      ;;
     -studio|--studio)
       TARGET="studio"
+      shift
+      ;;
+    -api|--api)
+      TARGET="api"
       shift
       ;;
     -human|--human)
@@ -31,16 +39,31 @@ while [[ $# -gt 0 ]]; do
       ;;
     *)
       echo "Unknown option: $1"
-      echo "Usage: ./scripts/build.sh [-studio|-human|-head|-torso|-arms|-legs]"
+      echo "Usage: ./scripts/build.sh [-dev|-studio|-api|-human|-head|-torso|-arms|-legs]"
       exit 1
       ;;
   esac
 done
 
+if ! command -v pnpm >/dev/null 2>&1; then
+  if [ -d "$HOME/.nvm/versions/node/v22.22.3/bin" ]; then
+    export PATH="$HOME/.nvm/versions/node/v22.22.3/bin:$PATH"
+  fi
+fi
+
 case "$TARGET" in
+  dev)
+    ./scripts/dev.sh
+    exit 0
+    ;;
   studio)
     echo "Starting Style Studio..."
     pnpm --filter @low-poly-character-studio/style-studio dev
+    exit 0
+    ;;
+  api)
+    echo "Starting API..."
+    pnpm --filter @low-poly-character-studio/api dev
     exit 0
     ;;
   human)
