@@ -29,16 +29,17 @@ Priority order is P0, P1, P2, then P3. Lower issue number wins when priorities a
 On each scheduled run:
 
 1. Inspect open pull requests and open issues.
-2. Continue the oldest `[IN PROGRESS]` issue first.
-3. If none exists, select the highest-priority `[READY]` issue.
-4. Change the selected issue title to `[IN PROGRESS]` before editing code.
-5. Work on one issue only. Use a branch named `agent/issue-<number>-<short-slug>`.
-6. Keep the issue updated with decisions, progress, checks, and blockers.
-7. Run the checks defined by CI or the narrowest relevant local equivalents.
-8. Open or update a draft pull request that references the issue.
-9. When acceptance criteria are met and checks pass, change the issue title to `[REVIEW]`.
-10. When blocked, change the title to `[BLOCKED]` and state the exact decision, credential, environment, or dependency required.
-11. If no issue is ready and no pull request needs work, make no repository changes.
+2. Re-evaluate `[BLOCKED]` issues whose only blockers are objective GitHub dependencies. Change an issue to `[READY]` when every listed prerequisite issue or pull request is complete.
+3. Continue the oldest `[IN PROGRESS]` issue first.
+4. If none exists, select the highest-priority `[READY]` issue whose dependencies are satisfied.
+5. Change the selected issue title to `[IN PROGRESS]` before editing code.
+6. Work on one issue only. Use a branch named `agent/issue-<number>-<short-slug>`.
+7. Keep the issue updated with decisions, progress, checks, and blockers.
+8. Run the checks defined by CI or the narrowest relevant local equivalents.
+9. Open or update a draft pull request that references the issue.
+10. When acceptance criteria are met and checks pass, change the issue title to `[REVIEW]`.
+11. When blocked, change the title to `[BLOCKED]` and state the exact decision, credential, environment, or dependency required.
+12. If no issue is ready and no pull request needs work, make no repository changes and do not send a routine notification.
 
 ## Definition of done
 
