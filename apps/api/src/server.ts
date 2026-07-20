@@ -2,13 +2,16 @@ import express from 'express'
 import cors from 'cors'
 import { spawn } from 'node:child_process'
 import path from 'node:path'
+import { BuildJobStore } from './build-jobs.js'
 
 const app = express()
 app.use(cors())
-app.use(express.json())
+app.use(express.json({ limit: '20mb' }))
 
 const projectRoot = path.resolve(process.cwd(), '../..')
 const generatedDir = path.join(projectRoot, 'packages/asset-compiler/dist/glb')
+const buildWorkspace = process.env.BUILD_WORKSPACE ?? path.join(projectRoot, '.workspace/build-jobs')
+const jobs = new BuildJobStore(buildWorkspace)
 
 app.use('/generated', express.static(generatedDir))
 
@@ -22,7 +25,89 @@ function run(command: string, args: string[], cwd: string) {
   })
 }
 
+function sendError(res: express.Response, error: unknown, status = 400) {
+  const message = error instanceof Error ? error.message : String(error)
+  res.status(status).json({ ok: false, error: message })
+}
+
 app.get('/health', (_req, res) => res.json({ ok: true }))
+
+app.get('/jobs', async (_req, res) => {
+  try {
+    res.json({ ok: true, jobs: await jobs.list() })
+  } catch (error) {
+    sendError(res, error, 500)
+  }
+})
+
+app.post('/jobs', async (req, res) => {
+  try {
+    const job = await jobs.create({
+      modelTypeId: req.body?.modelTypeId,
+      input: req.body?.input
+    })
+    res.status(201).json({ ok: true, job })
+  } catch (error) {
+    sendError(res, error)
+  }
+})
+
+app.get('/jobs/:id', async (req, res) => {
+  try {
+    const job = await jobs.get(req.params.id)
+    if (!job) {
+      res.status(404).json({ ok: false, error: `Build job not found: ${req.params.id}` })
+      return
+    }
+    res.json({ ok: true, job })
+  } catch (error) {
+    sendError(res, error, 500)
+  }
+})
+
+app.get('/jobs/:id/artifacts', async (req, res) => {
+  try {
+    res.json({ ok: true, artifacts: await jobs.listArtifacts(req.params.id) })
+  } catch (error) {
+    sendError(res, error, 404)
+  }
+})
+
+app.post('/jobs/:id/stages/:stage/start', async (req, res) => {
+  try {
+    res.json({ ok: true, job: await jobs.startStage(req.params.id, req.params.stage) })
+  } catch (error) {
+    sendError(res, error)
+  }
+})
+
+app.post('/jobs/:id/stages/:stage/complete', async (req, res) => {
+  try {
+    res.json({
+      ok: true,
+      job: await jobs.completeStage(req.params.id, req.params.stage, {
+        artifacts: Array.isArray(req.body?.artifacts) ? req.body.artifacts : []
+      })
+    })
+  } catch (error) {
+    sendError(res, error)
+  }
+})
+
+app.post('/jobs/:id/stages/:stage/fail', async (req, res) => {
+  try {
+    res.json({
+      ok: true,
+      job: await jobs.failStage(req.params.id, req.params.stage, {
+        message: req.body?.message ?? 'Stage failed',
+        code: req.body?.code,
+        details: req.body?.details
+      })
+    })
+  } catch (error) {
+    sendError(res, error)
+  }
+})
 
 app.post('/build/:target', async (req, res) => {
   try {
@@ -52,12 +137,14 @@ app.post('/build/:target', async (req, res) => {
       output: `/generated/${selected.output}`,
       builtAt: Date.now()
     })
-  } catch (err) {
-    res.status(500).json({ ok: false, error: String(err) })
+  } catch (error) {
+    sendError(res, error, 500)
   }
 })
 
+await jobs.initialize()
 app.listen(3001, () => {
   console.log('API listening on http://localhost:3001')
   console.log(`Serving generated GLBs from ${generatedDir}`)
+  console.log(`Persisting build jobs in ${buildWorkspace}`)
 })
