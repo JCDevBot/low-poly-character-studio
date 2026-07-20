@@ -8,8 +8,9 @@ Before selecting or implementing work, read:
 
 1. `docs/product-vision.md`
 2. `docs/architecture.md`
-3. `docs/task-management.md`
-4. The relevant open GitHub issue and linked pull request, if any
+3. `docs/gold-standard-humanoid-chibi.md` for work affecting `humanoid/chibi-v1`
+4. `docs/task-management.md`
+5. The relevant open GitHub issue and linked pull request, if any
 
 Repository files and GitHub state are authoritative. Do not rely on conversation memory to determine task state.
 
@@ -50,6 +51,7 @@ An implementation issue is ready for review only when:
 - New behavior is tested or a documented test gap explains why testing is not yet practical.
 - User-facing behavior or architecture changes are documented.
 - The pull request has a focused summary, validation notes, and remaining risks.
+- Work affecting `humanoid/chibi-v1` includes the required comparison views and is visually evaluated against `docs/gold-standard-humanoid-chibi.md`.
 
 ## Change boundaries
 
@@ -66,3 +68,4 @@ An implementation issue is ready for review only when:
 - Generated assets must remain editable, reproducible, and attributable to a model type and pipeline version.
 - Model-type-specific behavior belongs behind shared contracts rather than being hard-coded into the UI.
 - The final downloadable artifact is a validated `.glb` containing mesh, materials, rig, and the selected animation clips.
+- Technical validity does not override the approved visual target. The humanoid base model must preserve the documented proportions, silhouette, expression, faceted geometry, and hand-painted surface language.
