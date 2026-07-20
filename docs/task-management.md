@@ -16,7 +16,7 @@ Every actionable issue title uses:
 
 Allowed states:
 
-- `READY`: acceptance criteria are clear and work may begin
+- `READY`: acceptance criteria are clear, dependencies are satisfied, and work may begin
 - `IN PROGRESS`: actively owned by the agent
 - `REVIEW`: implementation is in a pull request and acceptance criteria are believed complete
 - `BLOCKED`: work cannot continue without a named dependency or decision
@@ -55,11 +55,12 @@ Constraints, relevant files, and decisions.
 
 The hourly agent selects work deterministically:
 
-1. Continue the lowest-numbered open `IN PROGRESS` issue.
-2. Otherwise select the lowest priority number among `READY` issues.
-3. Break priority ties by lowest issue number.
-4. Do not begin a `BLOCKED` or `REVIEW` issue unless its state has changed.
-5. Do not invent work when the queue is empty. Create a proposed issue only when a clear defect or prerequisite is discovered while completing an existing issue.
+1. Re-evaluate `BLOCKED` issues whose blockers are objective GitHub dependencies. Move them to `READY` when all listed prerequisite issues are closed and prerequisite pull requests are merged.
+2. Continue the lowest-numbered open `IN PROGRESS` issue.
+3. Otherwise select the lowest priority number among `READY` issues with satisfied dependencies.
+4. Break priority ties by lowest issue number.
+5. Do not begin a `BLOCKED` or `REVIEW` issue unless its state has changed.
+6. Do not invent work when the queue is empty. Create a proposed issue only when a clear defect or prerequisite is discovered while completing an existing issue.
 
 ## State transitions
 
@@ -79,6 +80,8 @@ When an issue is blocked, the issue comment must state:
 - what failed or is missing
 - why the agent cannot resolve it safely
 - the smallest action needed to unblock it
+
+An issue blocked only by other GitHub work should list exact issue or pull request numbers so a scheduled run can resolve the dependency without interpretation.
 
 ## Branch and pull request conventions
 
