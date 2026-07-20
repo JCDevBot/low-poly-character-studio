@@ -1,41 +1,56 @@
 # Low Poly Character Studio
 
-Low Poly Character Studio is an image-to-asset compiler for creating stylized, rigged, low-poly 3D models.
+Low Poly Character Studio is an image-to-asset pipeline for generating stylized, rigged, low-poly 3D models that can be previewed and downloaded as `.glb` files.
 
-The intended user flow is:
+## Product goal
 
-1. Choose a supported model type.
-2. Upload one or more reference images.
-3. Review or adjust inferred StyleDNA.
-4. Run modeling, rigging, animation, validation, and export stages.
-5. Preview the result and download a `.glb`.
+A user should be able to:
 
-The first end-to-end target is `humanoid/chibi-v1`: a recognizable low-poly humanoid generated from a front image, optionally improved with side and back references, rigged to a standard skeleton, and exported with A-pose, idle, walk, and wave animations.
+1. choose a supported model type
+2. upload a front reference image, with optional side and back references
+3. review or refine inferred style and proportion data
+4. run modeling, rigging, animation, validation, and export stages
+5. preview the generated asset and its animation clips
+6. download one self-contained `.glb`
 
-## Project direction
+The first supported model type is `humanoid/chibi-v1`. Its canonical visual target is defined in [`docs/gold-standard-humanoid-chibi.md`](docs/gold-standard-humanoid-chibi.md).
 
-- [Product vision](docs/product-vision.md)
-- [Architecture direction](docs/architecture.md)
-- [Task management](docs/task-management.md)
-- [Agent steering](AGENTS.md)
+The first animation set targets:
 
-GitHub Issues are the canonical backlog. Scheduled developer runs reconstruct task state from issue titles, issue comments, pull requests, and repository documentation.
+- A-pose
+- idle
+- walk
+- wave
+
+See:
+
+- [`docs/product-vision.md`](docs/product-vision.md)
+- [`docs/architecture.md`](docs/architecture.md)
+- [`docs/gold-standard-humanoid-chibi.md`](docs/gold-standard-humanoid-chibi.md)
+- [`docs/task-management.md`](docs/task-management.md)
+- [`AGENTS.md`](AGENTS.md)
 
 ## Current implementation
 
 The repository currently contains:
 
 - a React, Vite, and Three.js Style Studio
-- a landmark-based StyleDNA editor
-- an Express API that invokes local Blender builds
-- procedural Blender scripts for low-poly human parts and a base human
-- GLB preview support in the Studio
+- landmark editing and StyleDNA generation
+- Blender scripts for procedural humanoid parts and a base human
+- a local Express API that launches selected Blender builds
+- GLB preview support
 
-The current Style Studio flow still uses bundled reference images and local Blender execution. Image upload, a model type registry, full rigging, animation, job persistence, and validated downloadable export are planned work.
+The current implementation is an early foundation. It does not yet provide the complete upload-to-rigged-model workflow.
 
 ## Local development
 
-Install dependencies and start the API and Studio together:
+Requirements:
+
+- Node.js 22
+- pnpm 9
+- Blender available as `blender` for generation
+
+Install dependencies and start the API and Studio:
 
 ```bash
 pnpm install
@@ -48,28 +63,21 @@ Open:
 http://localhost:5173/
 ```
 
-Run only the Style Studio:
+To run only the Studio:
 
 ```bash
 ./scripts/build.sh -studio
 ```
 
-Build the Style Studio:
-
-```bash
-pnpm studio:build
-```
-
-Run a Blender target:
+To run a current Blender build target:
 
 ```bash
 ./scripts/build.sh -human
 ./scripts/build.sh -head
-./scripts/build.sh -torso
-./scripts/build.sh -arms
-./scripts/build.sh -legs
 ```
 
-## CI and delivery
+## Delivery
 
-Pull requests and pushes to `main` build the Studio and validate shell and Python source syntax through GitHub Actions. Tags beginning with `v` build and attach a versioned Studio artifact to a GitHub release.
+Pull requests and pushes to `main` run continuous integration. Version tags matching `v*` package the built Style Studio as a GitHub Release artifact.
+
+Blender-capable end-to-end CI and production hosting are separate roadmap items.
