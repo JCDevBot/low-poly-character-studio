@@ -5,7 +5,7 @@ This document defines the canonical visual target for the first supported model 
 The product owner's approved character sheet is the source of truth. The approved reference should be stored in this repository as:
 
 ```text
-docs/reference/gold-standard-humanoid-chibi.webp
+docs/reference/gold-standard-humanoid-chibi.png
 ```
 
 ## Character identity
