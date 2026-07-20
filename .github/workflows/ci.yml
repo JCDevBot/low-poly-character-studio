@@ -38,6 +38,9 @@ jobs:
       - name: Test model type contracts
         run: pnpm model-types:test
 
+      - name: Test persistent build jobs
+        run: pnpm build-jobs:test
+
       - name: Build Style Studio
         run: pnpm studio:build
 
