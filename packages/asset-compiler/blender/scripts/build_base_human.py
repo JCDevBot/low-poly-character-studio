@@ -9,6 +9,7 @@ BLENDER_DIR = SCRIPT_DIR.parent
 ASSET_COMPILER_DIR = BLENDER_DIR.parent
 sys.path.append(str(BLENDER_DIR))
 
+from generator.body_topology import TOPOLOGY_SCHEMA, build_body_graph
 from generator.character_dna import LittleGuyDNA
 
 
@@ -35,6 +36,17 @@ def lowpoly(obj):
     obj.select_set(False)
 
 
+def _activate(obj):
+    bpy.ops.object.select_all(action="DESELECT")
+    obj.select_set(True)
+    bpy.context.view_layer.objects.active = obj
+
+
+def _apply_modifier(obj, modifier):
+    _activate(obj)
+    bpy.ops.object.modifier_apply(modifier=modifier.name)
+
+
 def cube(name, loc, scale, material, bevel_width=0.015):
     bpy.ops.mesh.primitive_cube_add(size=1, location=loc)
     obj = bpy.context.object
@@ -46,21 +58,6 @@ def cube(name, loc, scale, material, bevel_width=0.015):
         bevel = obj.modifiers.new("soft_low_poly_edges", "BEVEL")
         bevel.width = bevel_width
         bevel.segments = 1
-    return obj
-
-
-def cylinder(name, loc, radius, depth, material, rotation=(0, 0, 0), vertices=8):
-    bpy.ops.mesh.primitive_cylinder_add(
-        vertices=vertices,
-        radius=radius,
-        depth=depth,
-        location=loc,
-        rotation=rotation,
-    )
-    obj = bpy.context.object
-    obj.name = name
-    obj.data.materials.append(material)
-    lowpoly(obj)
     return obj
 
 
@@ -87,10 +84,8 @@ def custom_head(name, dna: LittleGuyDNA, material):
     sx, sy, sz = dna.head_scale
     segments = dna.low_poly_segments
 
-    # z, x multiplier, y multiplier
-    # Designed to avoid the old egg shape: fuller cheeks, soft chin, rounder side.
     rings = [
-        (-1.00, 0.42 * dna.chin_softness, 0.36),  # soft chin, not a point
+        (-1.00, 0.42 * dna.chin_softness, 0.36),
         (-0.78, 0.66, 0.58),
         (-0.46, 0.92 * dna.cheek_fullness, 0.82),
         (-0.12, 1.00 * dna.cheek_fullness, 0.98),
@@ -105,36 +100,29 @@ def custom_head(name, dna: LittleGuyDNA, material):
             angle = math.tau * i / segments
             x = math.cos(angle) * sx * x_mul
             y = math.sin(angle) * sy * y_mul
-
-            # Flatten face plane a bit while keeping the side/back round.
             if y < 0:
                 y *= 0.84
-
-            # Keep the lower back slightly tucked in.
             if z_norm < -0.4 and y > 0:
                 x *= 0.94
-
             verts.append((x, y, dna.head_center_z + z_norm * sz))
 
     top_index = len(verts)
     verts.append((0, 0, dna.head_center_z + 1.05 * sz))
-
     bottom_index = len(verts)
     verts.append((0, -0.02 * sy, dna.head_center_z - 1.08 * sz))
 
     faces = []
-    for r in range(len(rings) - 1):
+    for ring in range(len(rings) - 1):
         for i in range(segments):
-            a = r * segments + i
-            b = r * segments + (i + 1) % segments
-            c = (r + 1) * segments + (i + 1) % segments
-            d = (r + 1) * segments + i
+            a = ring * segments + i
+            b = ring * segments + (i + 1) % segments
+            c = (ring + 1) * segments + (i + 1) % segments
+            d = (ring + 1) * segments + i
             faces.append((a, b, c, d))
 
     top_ring_start = (len(rings) - 1) * segments
     for i in range(segments):
         faces.append((top_ring_start + i, top_ring_start + (i + 1) % segments, top_index))
-
     for i in range(segments):
         faces.append((bottom_index, (i + 1) % segments, i))
 
@@ -149,16 +137,66 @@ def custom_head(name, dna: LittleGuyDNA, material):
     return obj
 
 
+def connected_body(name, dna: LittleGuyDNA, material):
+    """Build one connected low-poly deforming body with support nodes at every joint."""
+    nodes, edges = build_body_graph(dna)
+    mesh = bpy.data.meshes.new(f"{name}Mesh")
+    mesh.from_pydata([node.point for node in nodes], edges, [])
+    mesh.update()
+
+    obj = bpy.data.objects.new(name, mesh)
+    bpy.context.collection.objects.link(obj)
+    obj.data.materials.append(material)
+    obj["topologySchema"] = TOPOLOGY_SCHEMA
+    obj["guideNodeCount"] = len(nodes)
+    obj["guideEdgeCount"] = len(edges)
+
+    _activate(obj)
+    skin = obj.modifiers.new("connected_body_skin", "SKIN")
+    if hasattr(skin, "branch_smoothing"):
+        skin.branch_smoothing = 0.20
+    if hasattr(skin, "use_smooth_shade"):
+        skin.use_smooth_shade = False
+
+    if not obj.data.skin_vertices:
+        bpy.ops.object.mode_set(mode="EDIT")
+        bpy.ops.mesh.customdata_skin_add()
+        bpy.ops.object.mode_set(mode="OBJECT")
+    skin_vertices = obj.data.skin_vertices[0].data
+    for index, node in enumerate(nodes):
+        skin_vertices[index].radius = node.radius
+        skin_vertices[index].use_root = node.name == "hips"
+
+    _apply_modifier(obj, skin)
+
+    subdivision = obj.modifiers.new("joint_support_subdivision", "SUBSURF")
+    subdivision.subdivision_type = "CATMULL_CLARK"
+    subdivision.levels = 1
+    subdivision.render_levels = 1
+    _apply_modifier(obj, subdivision)
+
+    triangle_count = sum(max(0, len(polygon.vertices) - 2) for polygon in obj.data.polygons)
+    if triangle_count > 2800:
+        decimate = obj.modifiers.new("low_poly_triangle_budget", "DECIMATE")
+        decimate.decimate_type = "COLLAPSE"
+        decimate.ratio = max(0.25, 2500 / triangle_count)
+        _apply_modifier(obj, decimate)
+        triangle_count = sum(max(0, len(polygon.vertices) - 2) for polygon in obj.data.polygons)
+
+    obj["triangleCount"] = triangle_count
+    lowpoly(obj)
+    return obj
+
+
 def create_eye(name, x, dna: LittleGuyDNA, material):
     front_y = -dna.head_depth / 2 * 0.86
-    obj = cube(
+    return cube(
         name,
         (x, front_y - 0.004, dna.eye_center_z),
         (dna.eye_width / 2, 0.009, dna.eye_height / 2),
         material,
         bevel_width=0.006,
     )
-    return obj
 
 
 def build_human(dna: LittleGuyDNA):
@@ -171,74 +209,54 @@ def build_human(dna: LittleGuyDNA):
     bpy.context.collection.objects.link(root)
     parts = []
 
-    # Head and face from measured StyleDNA.
+    parts.append(connected_body("Body_Core", dna, skin))
     parts.append(custom_head("Body_Head", dna, skin))
     parts.append(create_eye("Face_LeftEye", -dna.eye_spacing / 2, dna, eyes))
     parts.append(create_eye("Face_RightEye", dna.eye_spacing / 2, dna, eyes))
 
-    # Ears placed from the style sheet.
     ear_x = dna.head_width / 2 * 0.98
-    parts.append(sphere("Body_LeftEar", (-ear_x, 0, dna.ear_center_z), (0.035, 0.024, dna.ear_height / 2), skin, 8, 4))
-    parts.append(sphere("Body_RightEar", (ear_x, 0, dna.ear_center_z), (0.035, 0.024, dna.ear_height / 2), skin, 8, 4))
-
-    # Neck and body. Simple for now, but driven by image-derived landmarks.
-    parts.append(cylinder("Body_Neck", (0, 0, dna.neck_z - 0.03), 0.045, 0.09, skin, vertices=8))
-
     parts.append(
-        cube(
-            "Body_Torso",
-            (0, 0, dna.torso_center_z),
-            (dna.torso_width / 2, dna.torso_depth / 2, dna.torso_height / 2),
+        sphere(
+            "Body_LeftEar",
+            (-ear_x, 0, dna.ear_center_z),
+            (0.035, 0.024, dna.ear_height / 2),
             skin,
-            bevel_width=0.025,
+            8,
+            4,
+        )
+    )
+    parts.append(
+        sphere(
+            "Body_RightEar",
+            (ear_x, 0, dna.ear_center_z),
+            (0.035, 0.024, dna.ear_height / 2),
+            skin,
+            8,
+            4,
         )
     )
 
     parts.append(
         cube(
             "Clothing_AFrameShirt",
-            (0, -0.012, dna.torso_center_z + 0.015),
+            (0, -0.006, dna.torso_center_z + dna.torso_height * 0.05),
             (dna.torso_width * 0.54, dna.torso_depth * 0.54, dna.torso_height * 0.43),
             shirt,
             bevel_width=0.02,
         )
     )
-
     parts.append(
         cube(
             "Clothing_Boxers",
-            (0, 0, dna.waist_z - 0.035),
-            (dna.hip_width / 2, dna.torso_depth * 0.52, 0.055),
+            (0, 0, dna.waist_z - dna.head_height * 0.045),
+            (dna.hip_width * 0.54, dna.torso_depth * 0.54, dna.head_height * 0.07),
             boxers,
             bevel_width=0.02,
         )
     )
 
-    # Arms: short, chunky, hanging naturally. We keep these as cylinders until mesh piece v001.
-    shoulder_x = dna.shoulder_width / 2
-    upper_arm_z = dna.torso_center_z + 0.02
-    forearm_z = dna.torso_center_z - 0.17
-
-    parts.append(cylinder("Body_LeftUpperArm", (-shoulder_x, 0, upper_arm_z), dna.arm_radius, dna.arm_length * 0.52, skin, rotation=(0, math.radians(17), 0), vertices=8))
-    parts.append(cylinder("Body_RightUpperArm", (shoulder_x, 0, upper_arm_z), dna.arm_radius, dna.arm_length * 0.52, skin, rotation=(0, math.radians(-17), 0), vertices=8))
-    parts.append(cylinder("Body_LeftForearm", (-shoulder_x * 1.12, 0, forearm_z), dna.arm_radius * 0.90, dna.arm_length * 0.45, skin, rotation=(0, math.radians(7), 0), vertices=8))
-    parts.append(cylinder("Body_RightForearm", (shoulder_x * 1.12, 0, forearm_z), dna.arm_radius * 0.90, dna.arm_length * 0.45, skin, rotation=(0, math.radians(-7), 0), vertices=8))
-
-    parts.append(sphere("Body_LeftHand", (-shoulder_x * 1.18, -0.005, forearm_z - 0.16), (0.046, 0.038, 0.055), skin, 8, 4))
-    parts.append(sphere("Body_RightHand", (shoulder_x * 1.18, -0.005, forearm_z - 0.16), (0.046, 0.038, 0.055), skin, 8, 4))
-
-    # Legs and feet.
-    leg_center_z = (dna.waist_z - 0.06) / 2
-    leg_x = dna.hip_width * 0.22
-    parts.append(cylinder("Body_LeftLeg", (-leg_x, 0, leg_center_z), dna.thigh_radius, dna.leg_length, skin, vertices=8))
-    parts.append(cylinder("Body_RightLeg", (leg_x, 0, leg_center_z), dna.thigh_radius, dna.leg_length, skin, vertices=8))
-
-    parts.append(cube("Body_LeftFoot", (-leg_x, -dna.foot_length * 0.12, dna.foot_height / 2), (dna.foot_width, dna.foot_length / 2, dna.foot_height / 2), skin, bevel_width=0.018))
-    parts.append(cube("Body_RightFoot", (leg_x, -dna.foot_length * 0.12, dna.foot_height / 2), (dna.foot_width, dna.foot_length / 2, dna.foot_height / 2), skin, bevel_width=0.018))
-
     for part in parts:
         part.parent = root
-
     return root
 
 
