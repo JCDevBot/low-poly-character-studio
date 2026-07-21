@@ -1,10 +1,49 @@
+.referenceWorkspace {
+  height: 100vh;
+  height: 100dvh;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+.referenceWorkspace > .app {
+  min-height: 0;
+  position: relative;
+  z-index: 1;
+}
+
 .referenceManager {
+  flex: 0 0 auto;
+  min-height: 0;
+  max-height: min(38vh, 320px);
+  max-height: min(38dvh, 320px);
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  position: relative;
+  z-index: 2;
   border-bottom: 1px solid #2b3143;
   background: #151823;
   padding: 14px;
 }
 
+.referenceManager.collapsed {
+  max-height: none;
+  overflow: hidden;
+  padding: 8px 14px;
+}
+
+.referenceManager.collapsed .referenceManagerHeading {
+  margin-bottom: 0;
+}
+
+.referenceManager.collapsed .referenceManagerBody {
+  display: none;
+}
+
 .referenceManagerHeading {
+  flex: 0 0 auto;
   display: flex;
   align-items: center;
   justify-content: space-between;
@@ -12,10 +51,20 @@
   margin-bottom: 12px;
 }
 
+.referenceManagerBody {
+  min-height: 0;
+  overflow: auto;
+  overscroll-behavior: contain;
+  scrollbar-gutter: stable;
+  padding-right: 4px;
+}
+
 .referenceManagerHeading h2 { margin: 0 0 4px; }
 .referenceManagerHeading p { font-size: 13px; }
+.referenceManagerHeadingActions { display: flex; gap: 8px; flex-wrap: wrap; justify-content: flex-end; }
 .referenceManagerHeading button,
-.referenceSlotActions button {
+.referenceSlotActions button,
+.referenceAnalysis button {
   background: #24293a;
   border: 1px solid #3a425c;
   color: #fff;
@@ -24,6 +73,8 @@
   cursor: pointer;
   font-weight: 700;
 }
+
+.referenceAnalysis button:disabled { cursor: progress; opacity: 0.65; }
 
 .referenceSlots {
   display: grid;
@@ -54,10 +105,68 @@
 .referenceManager summary { cursor: pointer; color: #c6cde1; }
 .referenceManager pre { margin-top: 8px; max-height: 180px; overflow: auto; background: #0d0f15; padding: 10px; border-radius: 8px; }
 
+.referenceAnalysis {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 10px 16px;
+  margin-top: 12px;
+  padding: 12px;
+  border: 1px solid #30374d;
+  border-radius: 10px;
+  background: #1b1f2d;
+}
+
+.referenceAnalysis p { margin: 4px 0 0; font-size: 12px; color: #c6cde1; }
+.analysisSummary { grid-column: 1 / -1; border-left: 3px solid #ffd66b; padding-left: 10px; }
+.analysisSummary.high { border-left-color: #74d99f; }
+.analysisSummary.low { border-left-color: #ff9f8f; }
+.analysisSummary strong { font-size: 13px; text-transform: capitalize; }
+
+.referenceWorkspace .topbar {
+  position: relative;
+  z-index: 4;
+}
+
+.referenceWorkspace .dnaPanel {
+  scrollbar-gutter: stable;
+}
+
+.referenceWorkspace .dnaPanel .tabs {
+  position: sticky;
+  top: -12px;
+  z-index: 5;
+  margin: -12px -12px 12px;
+  padding: 12px 12px 10px;
+  background: #1b1f2d;
+  border-bottom: 1px solid #2b3143;
+}
+
+.referenceWorkspace .buildPanel::before {
+  content: "Legacy pipeline preview — this generator is only a service smoke test. It does not yet use the uploaded references or StyleDNA. PR #19 will connect the current character data.";
+  display: block;
+  margin-bottom: 12px;
+  padding: 10px 11px;
+  border: 1px solid #8a6b20;
+  border-radius: 8px;
+  background: #2d2615;
+  color: #ffe49a;
+  font-size: 12px;
+  line-height: 1.4;
+  font-weight: 700;
+}
+
 /* Bundled references remain available through the explicit example preset above. */
 .referenceWorkspace .sidebar > .reference { display: none; }
 
 @media (max-width: 900px) {
   .referenceSlots { grid-template-columns: 1fr; }
+  .referenceManager {
+    max-height: min(44vh, 360px);
+    max-height: min(44dvh, 360px);
+  }
   .referenceManagerHeading { align-items: flex-start; flex-direction: column; }
+  .referenceManagerHeadingActions { width: 100%; justify-content: flex-start; }
+  .referenceAnalysis { grid-template-columns: 1fr; }
+  .analysisSummary { grid-column: 1; }
 }

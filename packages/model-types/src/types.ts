@@ -35,6 +35,7 @@ export interface ModelTypeManifest {
   status: "available" | "experimental" | "planned";
   description: string;
   referenceSlots: readonly ModelTypeReferenceSlot[];
+  analysisAdapter?: string | null;
   capabilities: ModelTypeCapabilities;
   rig: string | null;
   animations: readonly string[];

@@ -23,8 +23,6 @@ jobs:
 
       - name: Set up pnpm
         uses: pnpm/action-setup@v4
-        with:
-          version: 9
 
       - name: Set up Node.js
         uses: actions/setup-node@v4
@@ -40,6 +38,9 @@ jobs:
 
       - name: Test persistent build jobs
         run: pnpm build-jobs:test
+
+      - name: Test reference analysis
+        run: pnpm reference-analysis:test
 
       - name: Build Style Studio
         run: pnpm studio:build

@@ -1,4 +1,4 @@
-import React, { useMemo, useRef, useState } from 'react'
+import React, { useEffect, useMemo, useRef, useState } from 'react'
 import * as THREE from 'three'
 import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js'
 
@@ -17,6 +17,12 @@ type LandmarkKey =
 
 type Point = { x: number; y: number }
 type Landmarks = Partial<Record<LandmarkKey, Point>>
+type MarkerStyle = React.CSSProperties & {
+  '--marker-arm': string
+  '--marker-core': string
+  '--marker-stroke': string
+  '--marker-ring': string
+}
 
 const referenceImages = [
   { label: 'Front', src: '/references/little-guy/front.png' },
@@ -67,6 +73,11 @@ function download(filename: string, data: unknown) {
 
 function clamp(n: number, min: number, max: number) {
   return Math.max(min, Math.min(max, n))
+}
+
+function isEditableTarget(target: EventTarget | null) {
+  const element = target as HTMLElement | null
+  return Boolean(element?.closest('input, textarea, select, button, [contenteditable="true"]'))
 }
 
 function computeStyleDNA(source: string, landmarks: Landmarks, imageSize: { width: number; height: number }) {
@@ -233,12 +244,14 @@ function App() {
   const [hovered, setHovered] = useState<LandmarkKey | null>(null)
   const [draggingLandmark, setDraggingLandmark] = useState<LandmarkKey | null>(null)
   const [isPanning, setIsPanning] = useState(false)
+  const [spacePressed, setSpacePressed] = useState(false)
   const [rightTab, setRightTab] = useState<'preview' | 'build' | 'measurements' | 'json'>('preview')
   const [selectedBuildTarget, setSelectedBuildTarget] = useState('human')
   const [buildStatus, setBuildStatus] = useState<'idle' | 'building' | 'success' | 'error'>('idle')
   const [modelUrl, setModelUrl] = useState<string | null>(null)
   const dragStart = useRef<Point | null>(null)
   const panStart = useRef<Point | null>(null)
+  const suppressClick = useRef(false)
   const canvasRef = useRef<HTMLDivElement | null>(null)
 
   const currentLandmark = landmarkOrder[currentIndex]
@@ -248,18 +261,31 @@ function App() {
     [selectedImage, landmarks, imageSize]
   )
 
-  function fitImageToCanvas(size = imageSize) {
+  function centerImageAtZoom(nextZoom: number, size = imageSize) {
     const canvas = canvasRef.current
     if (!canvas) return
     const rect = canvas.getBoundingClientRect()
-    const padding = 36
-    const nextZoom = Math.min((rect.width - padding * 2) / size.width, (rect.height - padding * 2) / size.height)
-    const z = clamp(nextZoom, 0.2, 6)
+    const z = clamp(nextZoom, 0.2, 8)
     setZoom(z)
     setPan({
       x: (rect.width - size.width * z) / 2,
       y: (rect.height - size.height * z) / 2,
     })
+  }
+
+  function fitImageToCanvas(size = imageSize) {
+    const canvas = canvasRef.current
+    if (!canvas) return
+    const rect = canvas.getBoundingClientRect()
+    const padding = 24
+    const availableWidth = Math.max(1, rect.width - padding * 2)
+    const availableHeight = Math.max(1, rect.height - padding * 2)
+    const nextZoom = Math.min(availableWidth / size.width, availableHeight / size.height)
+    centerImageAtZoom(nextZoom, size)
+  }
+
+  function zoomBy(factor: number) {
+    centerImageAtZoom(zoom * factor)
   }
 
   function resetForImage(image: typeof referenceImages[number]) {
@@ -273,31 +299,82 @@ function App() {
     return { x: (point.x - pan.x) / zoom, y: (point.y - pan.y) / zoom }
   }
 
+  function removeLandmark(key: LandmarkKey) {
+    setLandmarks((previous) => {
+      const next = { ...previous }
+      delete next[key]
+      return next
+    })
+  }
+
+  function nudgeLandmark(key: LandmarkKey, dx: number, dy: number) {
+    setLandmarks((previous) => {
+      const point = previous[key]
+      if (!point) return previous
+      return {
+        ...previous,
+        [key]: {
+          x: clamp(point.x + dx, 0, imageSize.width),
+          y: clamp(point.y + dy, 0, imageSize.height),
+        },
+      }
+    })
+  }
+
+  useEffect(() => {
+    const handlePanelToggle = () => requestAnimationFrame(() => fitImageToCanvas())
+    window.addEventListener('low-poly:reference-panel-toggle', handlePanelToggle)
+    return () => window.removeEventListener('low-poly:reference-panel-toggle', handlePanelToggle)
+  }, [imageSize.width, imageSize.height])
+
+  useEffect(() => {
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (event.code !== 'Space' || isEditableTarget(event.target)) return
+      event.preventDefault()
+      setSpacePressed(true)
+    }
+    const onKeyUp = (event: KeyboardEvent) => {
+      if (event.code === 'Space') setSpacePressed(false)
+    }
+    const onBlur = () => setSpacePressed(false)
+    window.addEventListener('keydown', onKeyDown)
+    window.addEventListener('keyup', onKeyUp)
+    window.addEventListener('blur', onBlur)
+    return () => {
+      window.removeEventListener('keydown', onKeyDown)
+      window.removeEventListener('keyup', onKeyUp)
+      window.removeEventListener('blur', onBlur)
+    }
+  }, [])
+
   function onCanvasClick(event: React.MouseEvent<HTMLDivElement>) {
+    if (suppressClick.current) {
+      suppressClick.current = false
+      return
+    }
     if (draggingLandmark || isPanning) return
     const rect = event.currentTarget.getBoundingClientRect()
     const screen = { x: event.clientX - rect.left, y: event.clientY - rect.top }
     const img = screenToImage(screen)
     if (img.x < 0 || img.y < 0 || img.x > imageSize.width || img.y > imageSize.height) return
-    setLandmarks((prev) => ({ ...prev, [currentLandmark]: img }))
-    setCurrentIndex((idx) => Math.min(idx + 1, landmarkOrder.length - 1))
+    setLandmarks((previous) => ({ ...previous, [currentLandmark]: img }))
+    setCurrentIndex((index) => Math.min(index + 1, landmarkOrder.length - 1))
   }
 
   function onWheel(event: React.WheelEvent<HTMLDivElement>) {
     event.preventDefault()
-    const rect = event.currentTarget.getBoundingClientRect()
-    const mouse = { x: event.clientX - rect.left, y: event.clientY - rect.top }
-    const before = screenToImage(mouse)
-    const nextZoom = clamp(zoom * (event.deltaY < 0 ? 1.1 : 0.9), 0.2, 8)
-    setZoom(nextZoom)
-    setPan({ x: mouse.x - before.x * nextZoom, y: mouse.y - before.y * nextZoom })
+    event.stopPropagation()
+    if (!event.ctrlKey && !event.metaKey) return
+    zoomBy(event.deltaY < 0 ? 1.1 : 0.9)
   }
 
   function onPointerDown(event: React.PointerEvent<HTMLDivElement>) {
-    if (event.button !== 0) return
+    if (event.button !== 0 && event.button !== 1) return
     const target = event.target as HTMLElement
-    if (target.dataset.landmark) return
-    if (event.shiftKey || event.altKey || event.buttons === 4) {
+    if (target.closest('[data-landmark]')) return
+    if (event.button === 1 || spacePressed || event.shiftKey || event.altKey) {
+      event.preventDefault()
+      suppressClick.current = true
       setIsPanning(true)
       dragStart.current = { x: event.clientX, y: event.clientY }
       panStart.current = pan
@@ -310,8 +387,8 @@ function App() {
       const rect = event.currentTarget.getBoundingClientRect()
       const screen = { x: event.clientX - rect.left, y: event.clientY - rect.top }
       const img = screenToImage(screen)
-      setLandmarks((prev) => ({
-        ...prev,
+      setLandmarks((previous) => ({
+        ...previous,
         [draggingLandmark]: { x: clamp(img.x, 0, imageSize.width), y: clamp(img.y, 0, imageSize.height) },
       }))
       return
@@ -372,8 +449,8 @@ function App() {
           <div className="controls">
             <h2>Canvas</h2>
             <button onClick={() => fitImageToCanvas()}>Fit View</button>
-            <button onClick={() => setShowLabels((v) => !v)}>{showLabels ? 'Hide Labels' : 'Show Labels'}</button>
-            <p>Wheel = zoom. Shift/Alt + drag = pan. Drag markers to refine. Double-click marker = delete.</p>
+            <button onClick={() => setShowLabels((value) => !value)}>{showLabels ? 'Hide Labels' : 'Show Labels'}</button>
+            <p>Use the toolbar to zoom without moving the image off center. Hold Space and drag to pan. Drag markers to refine; use arrow keys for one-pixel adjustments.</p>
           </div>
 
           <h2>Landmarks</h2>
@@ -395,61 +472,108 @@ function App() {
         </aside>
 
         <section className="workspace">
-          <div className="current">
-            <span className="pill">{completedCount}/{landmarkOrder.length}</span>
-            Current landmark: <strong>{currentLandmark}</strong>. {descriptions[currentLandmark]}
+          <div className="canvasHeader">
+            <div className="current" aria-live="polite">
+              <span className="pill">{completedCount}/{landmarkOrder.length}</span>
+              Current landmark: <strong>{currentLandmark}</strong>. {descriptions[currentLandmark]}
+            </div>
+            <div className="canvasToolbar" aria-label="Canvas view controls">
+              <button type="button" onClick={() => fitImageToCanvas()}>Fit</button>
+              <button type="button" onClick={() => zoomBy(0.8)} aria-label="Zoom out">−</button>
+              <button type="button" onClick={() => centerImageAtZoom(1)} title="Reset to 100%">{Math.round(zoom * 100)}%</button>
+              <button type="button" onClick={() => zoomBy(1.25)} aria-label="Zoom in">+</button>
+              <button type="button" onClick={() => centerImageAtZoom(zoom)}>Center</button>
+              <button type="button" onClick={() => setShowLabels((value) => !value)}>{showLabels ? 'Hide labels' : 'Show labels'}</button>
+            </div>
           </div>
 
-          <div
-            ref={canvasRef}
-            className={isPanning ? 'canvas panning' : 'canvas'}
-            onClick={onCanvasClick}
-            onWheel={onWheel}
-            onPointerDown={onPointerDown}
-            onPointerMove={onPointerMove}
-            onPointerUp={onPointerUp}
-          >
-            <div className="imageLayer" style={{ width: imageSize.width, height: imageSize.height, transform: `translate(${pan.x}px, ${pan.y}px) scale(${zoom})` }}>
-              <img
-                src={selectedImage.src}
-                draggable={false}
-                onLoad={(event) => {
-                  const next = { width: event.currentTarget.naturalWidth, height: event.currentTarget.naturalHeight }
-                  setImageSize(next)
-                  requestAnimationFrame(() => fitImageToCanvas(next))
-                }}
-              />
-              {Object.entries(landmarks).map(([key, point]) => {
-                const selected = key === currentLandmark
-                const visibleLabel = showLabels || selected || hovered === key
-                const markerSize = 14 / zoom
-                return (
-                  <div
-                    key={key}
-                    data-landmark={key}
-                    className={selected ? 'marker selected' : 'marker'}
-                    style={{ left: point.x, top: point.y, width: markerSize, height: markerSize, marginLeft: -markerSize / 2, marginTop: -markerSize / 2 }}
-                    onMouseEnter={() => setHovered(key as LandmarkKey)}
-                    onMouseLeave={() => setHovered(null)}
-                    onDoubleClick={(event) => {
-                      event.stopPropagation()
-                      setLandmarks((prev) => {
-                        const next = { ...prev }
-                        delete next[key as LandmarkKey]
-                        return next
-                      })
-                    }}
-                    onPointerDown={(event) => {
-                      event.stopPropagation()
-                      setDraggingLandmark(key as LandmarkKey)
-                      setCurrentIndex(landmarkOrder.indexOf(key as LandmarkKey))
-                      event.currentTarget.setPointerCapture(event.pointerId)
-                    }}
-                  >
-                    {visibleLabel ? <span className="label" style={{ transform: `scale(${1 / zoom})`, transformOrigin: 'left center', left: 18 / zoom }}>{key}</span> : null}
-                  </div>
-                )
-              })}
+          <div className="canvasViewport">
+            <div
+              ref={canvasRef}
+              className={`${isPanning ? 'canvas panning' : 'canvas'}${spacePressed ? ' readyToPan' : ''}`}
+              onClick={onCanvasClick}
+              onWheel={onWheel}
+              onPointerDown={onPointerDown}
+              onPointerMove={onPointerMove}
+              onPointerUp={onPointerUp}
+              onPointerCancel={onPointerUp}
+            >
+              <div className="imageLayer" style={{ width: imageSize.width, height: imageSize.height, transform: `translate(${pan.x}px, ${pan.y}px) scale(${zoom})` }}>
+                <img
+                  src={selectedImage.src}
+                  draggable={false}
+                  onLoad={(event) => {
+                    const next = { width: event.currentTarget.naturalWidth, height: event.currentTarget.naturalHeight }
+                    setImageSize(next)
+                    requestAnimationFrame(() => fitImageToCanvas(next))
+                  }}
+                />
+                {Object.entries(landmarks).map(([rawKey, point]) => {
+                  const key = rawKey as LandmarkKey
+                  const selected = key === currentLandmark
+                  const visibleLabel = showLabels || selected || hovered === key
+                  const hitSize = 26 / zoom
+                  const markerStyle: MarkerStyle = {
+                    left: point.x,
+                    top: point.y,
+                    width: hitSize,
+                    height: hitSize,
+                    marginLeft: -hitSize / 2,
+                    marginTop: -hitSize / 2,
+                    '--marker-arm': `${12 / zoom}px`,
+                    '--marker-core': `${4 / zoom}px`,
+                    '--marker-stroke': `${1.25 / zoom}px`,
+                    '--marker-ring': `${2 / zoom}px`,
+                  }
+                  return (
+                    <div
+                      key={key}
+                      data-landmark={key}
+                      className={selected ? 'marker selected' : 'marker'}
+                      style={markerStyle}
+                      role="button"
+                      tabIndex={0}
+                      aria-label={`${key} landmark. Use arrow keys to nudge; Shift plus arrow moves ten pixels.`}
+                      onFocus={() => setCurrentIndex(landmarkOrder.indexOf(key))}
+                      onMouseEnter={() => setHovered(key)}
+                      onMouseLeave={() => setHovered(null)}
+                      onDoubleClick={(event) => {
+                        event.stopPropagation()
+                        removeLandmark(key)
+                      }}
+                      onKeyDown={(event) => {
+                        const step = event.shiftKey ? 10 : 1
+                        const movement: Partial<Record<string, Point>> = {
+                          ArrowLeft: { x: -step, y: 0 },
+                          ArrowRight: { x: step, y: 0 },
+                          ArrowUp: { x: 0, y: -step },
+                          ArrowDown: { x: 0, y: step },
+                        }
+                        const delta = movement[event.key]
+                        if (delta) {
+                          event.preventDefault()
+                          event.stopPropagation()
+                          nudgeLandmark(key, delta.x, delta.y)
+                        } else if (event.key === 'Delete' || event.key === 'Backspace') {
+                          event.preventDefault()
+                          event.stopPropagation()
+                          removeLandmark(key)
+                        }
+                      }}
+                      onPointerDown={(event) => {
+                        event.stopPropagation()
+                        event.currentTarget.focus()
+                        setDraggingLandmark(key)
+                        setCurrentIndex(landmarkOrder.indexOf(key))
+                        event.currentTarget.setPointerCapture(event.pointerId)
+                      }}
+                    >
+                      <span className="markerPoint" />
+                      {visibleLabel ? <span className="label" style={{ transform: `scale(${1 / zoom})`, transformOrigin: 'left center', left: 16 / zoom }}>{key}</span> : null}
+                    </div>
+                  )
+                })}
+              </div>
             </div>
           </div>
         </section>
