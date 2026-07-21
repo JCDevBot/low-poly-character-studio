@@ -27,13 +27,21 @@ The command uses `blender` by default. To use another executable:
 BLENDER_COMMAND=/path/to/blender pnpm rig-review
 ```
 
-The review package is written to:
+A successful review package is written to:
 
 ```text
 image-analysis/output/pr-21-rig-review.zip
 ```
 
-For each fixture, the package contains:
+When Blender, modeling, rigging, validation, or rendering fails, the command now preserves the logs and partial outputs in:
+
+```text
+image-analysis/output/pr-21-rig-review-failed.zip
+```
+
+Upload the failed ZIP for diagnosis rather than manually collecting individual log files. Its `failure-summary.txt` and package manifest identify the failed step, exit code, command, and exact Git commit.
+
+For each successful fixture, the package contains:
 
 - five consistent neutral turnaround views
 - a neutral front wireframe view
