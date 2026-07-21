@@ -150,6 +150,11 @@ def _validate_connected_body(mesh: bpy.types.Object) -> dict:
         "componentCount": component_count,
         "triangleCount": triangle_count,
         "vertexCount": len(mesh.data.vertices),
+        "preFusionComponentCount": mesh.get("preFusionComponentCount"),
+        "fusionMethod": mesh.get("fusionMethod"),
+        "fusionVoxelSize": mesh.get("fusionVoxelSize"),
+        "fusionAttemptCount": mesh.get("fusionAttemptCount"),
+        "finalComponentCount": mesh.get("finalComponentCount"),
     }
 
 
