@@ -5,6 +5,8 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import Iterable
 
+from .body_topology import resolve_body_landmarks
+
 RIG_ID = "humanoid-basic-v1"
 
 
@@ -42,43 +44,82 @@ JOINT_PARENTS = {
 
 
 def build_joint_spec(dna) -> tuple[Joint, ...]:
-    """Return deterministic joints from resolved humanoid DNA.
+    """Return deterministic joints aligned to the connected body graph.
 
     Blender uses Z-up, X left/right, and the character faces negative Y.
     """
-    hips_z = dna.waist_z
-    chest_z = dna.torso_center_z + dna.torso_height * 0.28
-    shoulder_z = dna.torso_center_z + dna.torso_height * 0.38
-    neck_z = dna.neck_z
-    head_z = dna.head_center_z
-    shoulder_x = dna.shoulder_width / 2
-    elbow_z = dna.torso_center_z - 0.05
-    wrist_z = dna.torso_center_z - 0.25
-    hip_x = dna.hip_width * 0.22
-    knee_z = max(dna.foot_height + 0.08, hips_z - dna.leg_length * 0.5)
-    ankle_z = dna.foot_height
+    marks = resolve_body_landmarks(dna)
+    hips_base_z = max(dna.foot_height * 1.4, marks.hips_z * 0.40)
+    chest_base_z = dna.torso_center_z
+    hand_tail_z = marks.hand_tip_z
+    foot_tail_y = marks.toe_y
 
     entries = (
-        Joint("root", None, (0, 0, 0), (0, 0, hips_z * 0.35), False),
-        Joint("hips", "root", (0, 0, hips_z * 0.35), (0, 0, hips_z)),
-        Joint("spine", "hips", (0, 0, hips_z), (0, 0, dna.torso_center_z)),
-        Joint("chest", "spine", (0, 0, dna.torso_center_z), (0, 0, chest_z)),
-        Joint("neck", "chest", (0, 0, chest_z), (0, 0, neck_z)),
-        Joint("head", "neck", (0, 0, neck_z), (0, 0, head_z + dna.head_height * 0.3)),
-        Joint("shoulder.L", "chest", (0, 0, shoulder_z), (-shoulder_x, 0, shoulder_z), False),
-        Joint("upper_arm.L", "shoulder.L", (-shoulder_x, 0, shoulder_z), (-shoulder_x * 1.08, 0, elbow_z)),
-        Joint("forearm.L", "upper_arm.L", (-shoulder_x * 1.08, 0, elbow_z), (-shoulder_x * 1.18, 0, wrist_z)),
-        Joint("hand.L", "forearm.L", (-shoulder_x * 1.18, 0, wrist_z), (-shoulder_x * 1.18, -0.01, wrist_z - 0.09)),
-        Joint("shoulder.R", "chest", (0, 0, shoulder_z), (shoulder_x, 0, shoulder_z), False),
-        Joint("upper_arm.R", "shoulder.R", (shoulder_x, 0, shoulder_z), (shoulder_x * 1.08, 0, elbow_z)),
-        Joint("forearm.R", "upper_arm.R", (shoulder_x * 1.08, 0, elbow_z), (shoulder_x * 1.18, 0, wrist_z)),
-        Joint("hand.R", "forearm.R", (shoulder_x * 1.18, 0, wrist_z), (shoulder_x * 1.18, -0.01, wrist_z - 0.09)),
-        Joint("thigh.L", "hips", (-hip_x, 0, hips_z), (-hip_x, 0, knee_z)),
-        Joint("shin.L", "thigh.L", (-hip_x, 0, knee_z), (-hip_x, 0, ankle_z)),
-        Joint("foot.L", "shin.L", (-hip_x, 0, ankle_z), (-hip_x, -dna.foot_length * 0.45, ankle_z)),
-        Joint("thigh.R", "hips", (hip_x, 0, hips_z), (hip_x, 0, knee_z)),
-        Joint("shin.R", "thigh.R", (hip_x, 0, knee_z), (hip_x, 0, ankle_z)),
-        Joint("foot.R", "shin.R", (hip_x, 0, ankle_z), (hip_x, -dna.foot_length * 0.45, ankle_z)),
+        Joint("root", None, (0, 0, 0), (0, 0, max(0.05, hips_base_z * 0.45)), False),
+        Joint("hips", "root", (0, 0, hips_base_z), (0, 0, marks.hips_z)),
+        Joint("spine", "hips", (0, 0, marks.hips_z), (0, 0, chest_base_z)),
+        Joint("chest", "spine", (0, 0, chest_base_z), (0, 0, marks.chest_z)),
+        Joint("neck", "chest", (0, 0, marks.chest_z), (0, 0, marks.neck_top_z)),
+        Joint(
+            "head",
+            "neck",
+            (0, 0, marks.neck_top_z),
+            (0, 0, dna.head_center_z + dna.head_height * 0.30),
+        ),
+        Joint("shoulder.L", "chest", (0, 0, marks.shoulder_z), (-marks.shoulder_x, 0, marks.shoulder_z), False),
+        Joint(
+            "upper_arm.L",
+            "shoulder.L",
+            (-marks.shoulder_x, 0, marks.shoulder_z),
+            (-marks.elbow_x, 0, marks.elbow_z),
+        ),
+        Joint(
+            "forearm.L",
+            "upper_arm.L",
+            (-marks.elbow_x, 0, marks.elbow_z),
+            (-marks.wrist_x, 0, marks.wrist_z),
+        ),
+        Joint(
+            "hand.L",
+            "forearm.L",
+            (-marks.wrist_x, 0, marks.wrist_z),
+            (-marks.wrist_x, -dna.arm_radius * 0.12, hand_tail_z),
+        ),
+        Joint("shoulder.R", "chest", (0, 0, marks.shoulder_z), (marks.shoulder_x, 0, marks.shoulder_z), False),
+        Joint(
+            "upper_arm.R",
+            "shoulder.R",
+            (marks.shoulder_x, 0, marks.shoulder_z),
+            (marks.elbow_x, 0, marks.elbow_z),
+        ),
+        Joint(
+            "forearm.R",
+            "upper_arm.R",
+            (marks.elbow_x, 0, marks.elbow_z),
+            (marks.wrist_x, 0, marks.wrist_z),
+        ),
+        Joint(
+            "hand.R",
+            "forearm.R",
+            (marks.wrist_x, 0, marks.wrist_z),
+            (marks.wrist_x, -dna.arm_radius * 0.12, hand_tail_z),
+        ),
+        Joint("thigh.L", "hips", (-marks.hip_x, 0, marks.hips_z), (-marks.hip_x, 0, marks.knee_z)),
+        Joint("shin.L", "thigh.L", (-marks.hip_x, 0, marks.knee_z), (-marks.hip_x, 0, marks.ankle_z)),
+        Joint(
+            "foot.L",
+            "shin.L",
+            (-marks.hip_x, 0, marks.ankle_z),
+            (-marks.hip_x, foot_tail_y, dna.foot_height * 0.52),
+        ),
+        Joint("thigh.R", "hips", (marks.hip_x, 0, marks.hips_z), (marks.hip_x, 0, marks.knee_z)),
+        Joint("shin.R", "thigh.R", (marks.hip_x, 0, marks.knee_z), (marks.hip_x, 0, marks.ankle_z)),
+        Joint(
+            "foot.R",
+            "shin.R",
+            (marks.hip_x, 0, marks.ankle_z),
+            (marks.hip_x, foot_tail_y, dna.foot_height * 0.52),
+        ),
     )
     validate_joint_spec(entries)
     return entries
