@@ -5,6 +5,7 @@
     "studio": "pnpm --filter @low-poly-character-studio/style-studio dev",
     "studio:build": "pnpm --filter @low-poly-character-studio/style-studio build",
     "model-types:test": "pnpm --filter @low-poly-character-studio/api exec tsx ../../packages/model-types/test/registry.test.ts",
+    "build-jobs:test": "pnpm --filter @low-poly-character-studio/api test:build-jobs",
     "dev": "bash scripts/dev.sh",
     "api": "pnpm --filter @low-poly-character-studio/api dev"
   }

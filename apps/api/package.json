@@ -4,7 +4,8 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "dev": "tsx src/server.ts"
+    "dev": "tsx src/server.ts",
+    "test:build-jobs": "tsx src/build-jobs.test.ts"
   },
   "dependencies": {
     "cors": "^2.8.5",
