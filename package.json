@@ -1,8 +1,13 @@
 {
   "name": "low-poly-character-studio",
   "private": true,
+  "packageManager": "pnpm@9.15.9",
+  "engines": {
+    "node": ">=22 <23"
+  },
   "scripts": {
-    "studio": "pnpm --filter @low-poly-character-studio/style-studio dev",
+    "studio": "bash scripts/dev.sh",
+    "studio:ui": "pnpm --filter @low-poly-character-studio/style-studio dev",
     "studio:build": "pnpm --filter @low-poly-character-studio/style-studio build",
     "model-types:test": "pnpm --filter @low-poly-character-studio/api exec tsx ../../packages/model-types/test/registry.test.ts",
     "build-jobs:test": "pnpm --filter @low-poly-character-studio/api test:build-jobs",
