@@ -143,7 +143,7 @@
 }
 
 .referenceWorkspace .buildPanel::before {
-  content: "Legacy pipeline preview — this generator does not yet use the uploaded references or StyleDNA. PR #19 will connect the current character data.";
+  content: "Legacy pipeline preview — this generator is only a service smoke test. It does not yet use the uploaded references or StyleDNA. PR #19 will connect the current character data.";
   display: block;
   margin-bottom: 12px;
   padding: 10px 11px;
