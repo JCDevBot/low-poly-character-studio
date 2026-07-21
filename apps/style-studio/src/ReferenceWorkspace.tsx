@@ -66,6 +66,10 @@ function nextFrame() {
   return new Promise<void>((resolve) => requestAnimationFrame(() => resolve()))
 }
 
+function notifyWorkspaceResize() {
+  requestAnimationFrame(() => window.dispatchEvent(new Event('low-poly:reference-panel-toggle')))
+}
+
 async function applyAnalysisToLandmarkEditor(analysis: HumanoidReferenceAnalysis, source: ReferenceAsset) {
   document.querySelectorAll<HTMLElement>('.imageLayer [data-landmark]').forEach((marker) => {
     marker.dispatchEvent(new MouseEvent('dblclick', { bubbles: true }))
@@ -94,8 +98,10 @@ function ReferenceWorkspace({ children }: { children: React.ReactNode }) {
   const [analysis, setAnalysis] = useState<HumanoidReferenceAnalysis | null>(null)
   const [analysisStatus, setAnalysisStatus] = useState<'idle' | 'running' | 'complete' | 'error'>('idle')
   const [analysisError, setAnalysisError] = useState<string | null>(null)
+  const [collapsed, setCollapsed] = useState(false)
   const inputRefs = useRef<Partial<Record<ReferenceSlotId, HTMLInputElement | null>>>({})
   const referenceInput = useMemo(() => toInput(references), [references])
+  const referenceCount = Object.keys(references).length
 
   useEffect(() => {
     localStorage.setItem('low-poly-character-studio.reference-set.v1', JSON.stringify(referenceInput))
@@ -122,6 +128,11 @@ function ReferenceWorkspace({ children }: { children: React.ReactNode }) {
       if (asset?.source === 'upload') URL.revokeObjectURL(asset.url)
     })
   }, [references])
+
+  function toggleCollapsed() {
+    setCollapsed((current) => !current)
+    notifyWorkspaceResize()
+  }
 
   async function selectFile(slot: ReferenceSlotId, file?: File) {
     if (!file) return
@@ -199,6 +210,8 @@ function ReferenceWorkspace({ children }: { children: React.ReactNode }) {
       await applyAnalysisToLandmarkEditor(result, front)
       setAnalysis(result)
       setAnalysisStatus('complete')
+      setCollapsed(true)
+      notifyWorkspaceResize()
       localStorage.setItem('low-poly-character-studio.reference-analysis.v1', JSON.stringify(result))
       window.dispatchEvent(new CustomEvent('low-poly:reference-analysis-complete', { detail: result }))
     } catch (error) {
@@ -225,73 +238,83 @@ function ReferenceWorkspace({ children }: { children: React.ReactNode }) {
 
   return (
     <div className="referenceWorkspace">
-      <section className="referenceManager" aria-label="Character reference images">
+      <section className={collapsed ? 'referenceManager collapsed' : 'referenceManager'} aria-label="Character reference images">
         <div className="referenceManagerHeading">
           <div>
             <h2>Reference set</h2>
-            <p>Front is required. Side and back improve fidelity. Images remain in this browser.</p>
+            <p>
+              {collapsed
+                ? `${referenceCount} reference${referenceCount === 1 ? '' : 's'} selected${analysis ? ` · ${Math.round(analysis.confidence.overall * 100)}% confidence` : ''}`
+                : 'Front is required. Side and back improve fidelity. Images remain in this browser.'}
+            </p>
           </div>
-          <button type="button" onClick={loadExamplePreset}>Load Little Guy example</button>
+          <div className="referenceManagerHeadingActions">
+            {!collapsed ? <button type="button" onClick={loadExamplePreset}>Load Little Guy example</button> : null}
+            <button type="button" onClick={toggleCollapsed}>{collapsed ? 'Expand references' : 'Collapse references'}</button>
+          </div>
         </div>
-        <div className="referenceSlots">
-          {slots.map((slot) => {
-            const asset = references[slot.id]
-            return (
-              <article className={asset ? 'referenceSlot populated' : 'referenceSlot'} key={slot.id}>
-                <div className="referenceSlotTitle">
-                  <strong>{slot.label}</strong>
-                  <span>{slot.required ? 'Required' : 'Optional'}</span>
-                </div>
-                {asset ? (
-                  <>
-                    <img src={asset.url} alt={`${slot.label} reference thumbnail`} />
-                    <small>{asset.fileName}</small>
-                    <small>{asset.width} × {asset.height} · {asset.source}</small>
-                  </>
-                ) : <div className="referencePlaceholder">No image selected</div>}
-                <input
-                  ref={(element) => { inputRefs.current[slot.id] = element }}
-                  type="file"
-                  accept="image/png,image/jpeg,image/webp"
-                  onChange={(event) => selectFile(slot.id, event.currentTarget.files?.[0])}
-                />
-                <div className="referenceSlotActions">
-                  <button type="button" onClick={() => inputRefs.current[slot.id]?.click()}>{asset ? 'Replace' : 'Choose image'}</button>
-                  {asset ? <button type="button" onClick={() => remove(slot.id)}>Remove</button> : null}
-                </div>
-                {errors[slot.id] ? <p className="referenceError" role="alert">{errors[slot.id]}</p> : null}
-              </article>
-            )
-          })}
-        </div>
-        {!references.front ? <p className="referenceRequirement" role="status">Add a front reference before generation.</p> : (
-          <section className="referenceAnalysis" aria-label="Automated reference analysis">
-            <div>
-              <strong>Automated starting point</strong>
-              <p>Estimate silhouette, proportions, colors, and landmarks locally. Inferred markers remain editable.</p>
-            </div>
-            <button type="button" onClick={analyzeFrontReference} disabled={analysisStatus === 'running'}>
-              {analysisStatus === 'running' ? 'Analyzing…' : analysis ? 'Analyze again' : 'Analyze front reference'}
-            </button>
-            {analysis ? (
-              <div className={`analysisSummary ${analysis.confidence.level}`} role="status">
-                <strong>{Math.round(analysis.confidence.overall * 100)}% {analysis.confidence.level} confidence</strong>
-                {analysis.warnings.map((warning) => <p key={warning.code}>{warning.message}</p>)}
+
+        <div className="referenceManagerBody">
+          <div className="referenceSlots">
+            {slots.map((slot) => {
+              const asset = references[slot.id]
+              return (
+                <article className={asset ? 'referenceSlot populated' : 'referenceSlot'} key={slot.id}>
+                  <div className="referenceSlotTitle">
+                    <strong>{slot.label}</strong>
+                    <span>{slot.required ? 'Required' : 'Optional'}</span>
+                  </div>
+                  {asset ? (
+                    <>
+                      <img src={asset.url} alt={`${slot.label} reference thumbnail`} />
+                      <small>{asset.fileName}</small>
+                      <small>{asset.width} × {asset.height} · {asset.source}</small>
+                    </>
+                  ) : <div className="referencePlaceholder">No image selected</div>}
+                  <input
+                    ref={(element) => { inputRefs.current[slot.id] = element }}
+                    type="file"
+                    accept="image/png,image/jpeg,image/webp"
+                    onChange={(event) => selectFile(slot.id, event.currentTarget.files?.[0])}
+                  />
+                  <div className="referenceSlotActions">
+                    <button type="button" onClick={() => inputRefs.current[slot.id]?.click()}>{asset ? 'Replace' : 'Choose image'}</button>
+                    {asset ? <button type="button" onClick={() => remove(slot.id)}>Remove</button> : null}
+                  </div>
+                  {errors[slot.id] ? <p className="referenceError" role="alert">{errors[slot.id]}</p> : null}
+                </article>
+              )
+            })}
+          </div>
+          {!references.front ? <p className="referenceRequirement" role="status">Add a front reference before generation.</p> : (
+            <section className="referenceAnalysis" aria-label="Automated reference analysis">
+              <div>
+                <strong>Automated starting point</strong>
+                <p>Estimate silhouette, proportions, colors, and landmarks locally. Inferred markers remain editable.</p>
               </div>
-            ) : null}
-            {analysisError ? <p className="referenceError" role="alert">{analysisError} Uploaded references were preserved; place landmarks manually or retry.</p> : null}
-          </section>
-        )}
-        <details>
-          <summary>Versioned job input</summary>
-          <pre>{JSON.stringify(referenceInput, null, 2)}</pre>
-        </details>
-        {analysis ? (
+              <button type="button" onClick={analyzeFrontReference} disabled={analysisStatus === 'running'}>
+                {analysisStatus === 'running' ? 'Analyzing…' : analysis ? 'Analyze again' : 'Analyze front reference'}
+              </button>
+              {analysis ? (
+                <div className={`analysisSummary ${analysis.confidence.level}`} role="status">
+                  <strong>{Math.round(analysis.confidence.overall * 100)}% {analysis.confidence.level} confidence</strong>
+                  {analysis.warnings.map((warning) => <p key={warning.code}>{warning.message}</p>)}
+                </div>
+              ) : null}
+              {analysisError ? <p className="referenceError" role="alert">{analysisError} Uploaded references were preserved; place landmarks manually or retry.</p> : null}
+            </section>
+          )}
           <details>
-            <summary>Versioned analysis result</summary>
-            <pre>{JSON.stringify(analysis, null, 2)}</pre>
+            <summary>Versioned job input</summary>
+            <pre>{JSON.stringify(referenceInput, null, 2)}</pre>
           </details>
-        ) : null}
+          {analysis ? (
+            <details>
+              <summary>Versioned analysis result</summary>
+              <pre>{JSON.stringify(analysis, null, 2)}</pre>
+            </details>
+          ) : null}
+        </div>
       </section>
       {children}
     </div>
