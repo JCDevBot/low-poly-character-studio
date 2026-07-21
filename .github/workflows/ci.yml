@@ -45,6 +45,9 @@ jobs:
       - name: Test humanoid model runner
         run: pnpm model-runner:test
 
+      - name: Test humanoid rig runner
+        run: pnpm rig-runner:test
+
       - name: Build Style Studio
         run: pnpm studio:build
 
