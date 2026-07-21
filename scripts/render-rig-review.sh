@@ -11,11 +11,44 @@ OUTPUT_DIR="$OUTPUT_PARENT/pr-21-rig-review"
 ZIP_PATH="$OUTPUT_PARENT/pr-21-rig-review.zip"
 
 if [[ -z "$COMPACT_JOB" || -z "$TALL_JOB" ]]; then
-  cat >&2 <<'USAGE'
-Usage: pnpm rig-review COMPACT_JOB_ID TALL_JOB_ID
+  mapfile -t DISCOVERED_JOBS < <(python3 - "$ROOT_DIR/.workspace/build-jobs" <<'PY'
+import json
+import sys
+from pathlib import Path
 
-The jobs must already have completed model and rig stages.
-COMPACT_JOB and TALL_JOB environment variables may be used instead of arguments.
+workspace = Path(sys.argv[1])
+latest = {"compact fixture": None, "tall fixture": None}
+entries = []
+for manifest_path in workspace.glob("*/manifest.json"):
+    try:
+        manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError):
+        continue
+    if manifest.get("stages", {}).get("rig", {}).get("status") != "completed":
+        continue
+    source = manifest.get("input", {}).get("styleDna", {}).get("source")
+    if source in latest:
+        entries.append((manifest.get("createdAt", ""), source, manifest.get("id", manifest_path.parent.name)))
+
+for _created_at, source, job_id in sorted(entries, reverse=True):
+    if latest[source] is None:
+        latest[source] = job_id
+
+print(latest["compact fixture"] or "")
+print(latest["tall fixture"] or "")
+PY
+  )
+  COMPACT_JOB="${COMPACT_JOB:-${DISCOVERED_JOBS[0]:-}}"
+  TALL_JOB="${TALL_JOB:-${DISCOVERED_JOBS[1]:-}}"
+fi
+
+if [[ -z "$COMPACT_JOB" || -z "$TALL_JOB" ]]; then
+  cat >&2 <<'USAGE'
+Usage: pnpm rig-review [COMPACT_JOB_ID TALL_JOB_ID]
+
+Without arguments, the script selects the newest completed rig jobs whose
+StyleDNA sources are "compact fixture" and "tall fixture".
+COMPACT_JOB and TALL_JOB environment variables may also be used.
 USAGE
   exit 2
 fi
