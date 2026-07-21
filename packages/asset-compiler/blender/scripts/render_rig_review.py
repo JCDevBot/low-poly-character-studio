@@ -25,10 +25,23 @@ POSED_VIEWS = (
 REVIEW_POSE = {
     "upper_arm.L": (0.0, 0.0, math.radians(42.0)),
     "forearm.L": (math.radians(58.0), 0.0, 0.0),
+    "hand.L": (0.0, math.radians(18.0), 0.0),
     "thigh.L": (math.radians(24.0), 0.0, 0.0),
     "shin.L": (math.radians(-46.0), 0.0, 0.0),
+    "foot.L": (math.radians(16.0), 0.0, 0.0),
+    "neck": (0.0, 0.0, math.radians(8.0)),
     "head": (0.0, 0.0, math.radians(12.0)),
 }
+
+ISOLATED_POSES = (
+    ("isolated-shoulder-front", {"upper_arm.L": (0.0, 0.0, math.radians(45.0))}, (0.0, -1.0, 0.0)),
+    ("isolated-elbow-three-quarter", {"forearm.L": (math.radians(62.0), 0.0, 0.0)}, (-1.0, -1.0, 0.0)),
+    ("isolated-wrist-front", {"hand.L": (0.0, math.radians(28.0), 0.0)}, (0.0, -1.0, 0.0)),
+    ("isolated-hip-side", {"thigh.L": (math.radians(28.0), 0.0, 0.0)}, (-1.0, 0.0, 0.0)),
+    ("isolated-knee-side", {"shin.L": (math.radians(-52.0), 0.0, 0.0)}, (-1.0, 0.0, 0.0)),
+    ("isolated-ankle-side", {"foot.L": (math.radians(24.0), 0.0, 0.0)}, (-1.0, 0.0, 0.0)),
+    ("isolated-neck-three-quarter", {"neck": (0.0, 0.0, math.radians(18.0))}, (-1.0, -1.0, 0.0)),
+)
 
 
 def parse_args():
@@ -142,28 +155,41 @@ def render_view(scene, camera, output_dir, name, direction):
 
 def render_wireframe(scene, camera, output_dir):
     shading = scene.display.shading
-    if not hasattr(shading, "show_wireframes"):
-        return None
-
-    previous = {
-        "show_wireframes": shading.show_wireframes,
+    mesh_objects = [obj for obj in bpy.context.scene.objects if obj.type == "MESH"]
+    previous_objects = [(obj, obj.show_wire, obj.show_all_edges) for obj in mesh_objects]
+    previous_shading = {
         "show_shadows": shading.show_shadows,
         "show_cavity": shading.show_cavity,
         "color_type": shading.color_type,
+        "show_wireframes": getattr(shading, "show_wireframes", None),
     }
     try:
-        shading.show_wireframes = True
+        for obj in mesh_objects:
+            obj.show_wire = True
+            obj.show_all_edges = True
+        if hasattr(shading, "show_wireframes"):
+            shading.show_wireframes = True
         shading.show_shadows = False
         shading.show_cavity = False
         shading.color_type = "SINGLE"
         if hasattr(shading, "single_color"):
             shading.single_color = (0.72, 0.74, 0.78)
-        return render_view(scene, camera, output_dir, "neutral-wireframe-front", (0.0, -1.0, 0.0))
+        return render_view(
+            scene,
+            camera,
+            output_dir,
+            "neutral-wireframe-front",
+            (0.0, -1.0, 0.0),
+        )
     finally:
-        shading.show_wireframes = previous["show_wireframes"]
-        shading.show_shadows = previous["show_shadows"]
-        shading.show_cavity = previous["show_cavity"]
-        shading.color_type = previous["color_type"]
+        for obj, show_wire, show_all_edges in previous_objects:
+            obj.show_wire = show_wire
+            obj.show_all_edges = show_all_edges
+        shading.show_shadows = previous_shading["show_shadows"]
+        shading.show_cavity = previous_shading["show_cavity"]
+        shading.color_type = previous_shading["color_type"]
+        if hasattr(shading, "show_wireframes") and previous_shading["show_wireframes"] is not None:
+            shading.show_wireframes = previous_shading["show_wireframes"]
 
 
 def main():
@@ -180,23 +206,27 @@ def main():
     set_pose(armature, {})
     for name, direction in NEUTRAL_VIEWS:
         images.append(render_view(scene, camera, args.output_dir, name, direction))
-
-    wireframe = render_wireframe(scene, camera, args.output_dir)
-    if wireframe:
-        images.append(wireframe)
+    images.append(render_wireframe(scene, camera, args.output_dir))
 
     set_pose(armature, REVIEW_POSE)
     for name, direction in POSED_VIEWS:
         images.append(render_view(scene, camera, args.output_dir, name, direction))
 
+    isolated_manifest = {}
+    for name, pose, direction in ISOLATED_POSES:
+        set_pose(armature, pose)
+        images.append(render_view(scene, camera, args.output_dir, name, direction))
+        isolated_manifest[name] = {bone: list(rotation) for bone, rotation in pose.items()}
+
     set_pose(armature, {})
     manifest = {
-        "schema": "rig-review-render/v1",
+        "schema": "rig-review-render/v2",
         "label": args.label,
         "inputBlend": args.input_blend.name,
         "blenderVersion": bpy.app.version_string,
         "rigId": armature.get("rigId", armature.name),
         "reviewPoseRadians": {name: list(rotation) for name, rotation in REVIEW_POSE.items()},
+        "isolatedPosesRadians": isolated_manifest,
         "images": images,
     }
     (args.output_dir / "review-manifest.json").write_text(
