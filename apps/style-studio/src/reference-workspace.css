@@ -1,0 +1,63 @@
+.referenceManager {
+  border-bottom: 1px solid #2b3143;
+  background: #151823;
+  padding: 14px;
+}
+
+.referenceManagerHeading {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  margin-bottom: 12px;
+}
+
+.referenceManagerHeading h2 { margin: 0 0 4px; }
+.referenceManagerHeading p { font-size: 13px; }
+.referenceManagerHeading button,
+.referenceSlotActions button {
+  background: #24293a;
+  border: 1px solid #3a425c;
+  color: #fff;
+  padding: 8px 10px;
+  border-radius: 8px;
+  cursor: pointer;
+  font-weight: 700;
+}
+
+.referenceSlots {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 10px;
+}
+
+.referenceSlot {
+  min-width: 0;
+  background: #1b1f2d;
+  border: 1px solid #30374d;
+  border-radius: 10px;
+  padding: 10px;
+}
+
+.referenceSlot.populated { border-color: #6d7ba5; }
+.referenceSlotTitle { display: flex; justify-content: space-between; gap: 8px; margin-bottom: 8px; }
+.referenceSlotTitle span { color: #9ca9cb; font-size: 12px; }
+.referenceSlot img { width: 100%; height: 110px; object-fit: contain; background: #0d0f15; border-radius: 7px; display: block; margin-bottom: 7px; }
+.referenceSlot small { display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: #c6cde1; }
+.referenceSlot input { display: none; }
+.referencePlaceholder { height: 110px; display: grid; place-items: center; background: #0d0f15; color: #7985a8; border-radius: 7px; margin-bottom: 7px; }
+.referenceSlotActions { display: flex; gap: 7px; margin-top: 9px; }
+.referenceSlotActions button { flex: 1; }
+.referenceError { color: #ffb4a8; font-size: 12px; margin-top: 8px; }
+.referenceRequirement { color: #ffd66b; font-size: 13px; margin-top: 10px; }
+.referenceManager details { margin-top: 10px; }
+.referenceManager summary { cursor: pointer; color: #c6cde1; }
+.referenceManager pre { margin-top: 8px; max-height: 180px; overflow: auto; background: #0d0f15; padding: 10px; border-radius: 8px; }
+
+/* Bundled references remain available through the explicit example preset above. */
+.referenceWorkspace .sidebar > .reference { display: none; }
+
+@media (max-width: 900px) {
+  .referenceSlots { grid-template-columns: 1fr; }
+  .referenceManagerHeading { align-items: flex-start; flex-direction: column; }
+}
