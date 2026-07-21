@@ -42,6 +42,9 @@ jobs:
       - name: Test reference analysis
         run: pnpm reference-analysis:test
 
+      - name: Test humanoid model runner
+        run: pnpm model-runner:test
+
       - name: Build Style Studio
         run: pnpm studio:build
 
@@ -60,5 +63,8 @@ jobs:
       - name: Validate shell syntax
         run: bash -n scripts/*.sh
 
+      - name: Test humanoid StyleDNA contracts
+        run: python3 packages/asset-compiler/blender/tests/test_style_dna.py
+
       - name: Compile Python sources
-        run: python -m compileall -q packages/asset-compiler/blender/scripts
+        run: python3 -m compileall -q packages/asset-compiler/blender/generator packages/asset-compiler/blender/scripts

@@ -1,0 +1,16 @@
+{
+  "schema": "humanoid-style-dna/v1",
+  "modelTypeId": "humanoid/chibi-v1",
+  "source": "compact fixture",
+  "blenderHints": {
+    "totalHeight": 1.3,
+    "headWidth": 0.48,
+    "headDepth": 0.42,
+    "headHeight": 0.46,
+    "eyeSpacing": 0.18,
+    "eyeZ": 1.02,
+    "torsoWidth": 0.29,
+    "waistWidth": 0.24,
+    "legLength": 0.25
+  }
+}
