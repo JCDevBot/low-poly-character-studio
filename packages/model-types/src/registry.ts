@@ -1,4 +1,5 @@
 import { humanoidChibiV1Manifest } from "./manifests/humanoid-chibi-v1";
+import { quadrupedPlannedV0Manifest } from "./manifests/quadruped-planned-v0";
 import { ModelTypeManifestError, validateModelTypeManifest } from "./schema";
 import type { ModelTypeManifest } from "./types";
 
@@ -36,4 +37,7 @@ export class ModelTypeRegistry {
   }
 }
 
-export const modelTypeRegistry = new ModelTypeRegistry([humanoidChibiV1Manifest]);
+export const modelTypeRegistry = new ModelTypeRegistry([
+  humanoidChibiV1Manifest,
+  quadrupedPlannedV0Manifest,
+]);
