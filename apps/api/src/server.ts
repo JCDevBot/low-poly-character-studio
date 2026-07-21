@@ -4,6 +4,7 @@ import { spawn } from 'node:child_process'
 import path from 'node:path'
 import { BuildJobStore } from './build-jobs.js'
 import { runHumanoidModelStage } from './model-runner.js'
+import { runHumanoidRigStage } from './rig-runner.js'
 
 const app = express()
 app.use(cors())
@@ -34,23 +35,15 @@ function sendError(res: express.Response, error: unknown, status = 400) {
 app.get('/health', (_req, res) => res.json({ ok: true }))
 
 app.get('/jobs', async (_req, res) => {
-  try {
-    res.json({ ok: true, jobs: await jobs.list() })
-  } catch (error) {
-    sendError(res, error, 500)
-  }
+  try { res.json({ ok: true, jobs: await jobs.list() }) }
+  catch (error) { sendError(res, error, 500) }
 })
 
 app.post('/jobs', async (req, res) => {
   try {
-    const job = await jobs.create({
-      modelTypeId: req.body?.modelTypeId,
-      input: req.body?.input
-    })
+    const job = await jobs.create({ modelTypeId: req.body?.modelTypeId, input: req.body?.input })
     res.status(201).json({ ok: true, job })
-  } catch (error) {
-    sendError(res, error)
-  }
+  } catch (error) { sendError(res, error) }
 })
 
 app.get('/jobs/:id', async (req, res) => {
@@ -61,39 +54,31 @@ app.get('/jobs/:id', async (req, res) => {
       return
     }
     res.json({ ok: true, job })
-  } catch (error) {
-    sendError(res, error, 500)
-  }
+  } catch (error) { sendError(res, error, 500) }
 })
 
 app.get('/jobs/:id/artifacts', async (req, res) => {
-  try {
-    res.json({ ok: true, artifacts: await jobs.listArtifacts(req.params.id) })
-  } catch (error) {
-    sendError(res, error, 404)
-  }
+  try { res.json({ ok: true, artifacts: await jobs.listArtifacts(req.params.id) }) }
+  catch (error) { sendError(res, error, 404) }
 })
 
 app.post('/jobs/:id/stages/model/run', async (req, res) => {
   try {
-    const job = await runHumanoidModelStage({
-      jobId: req.params.id,
-      jobs,
-      buildWorkspace,
-      projectRoot
-    })
+    const job = await runHumanoidModelStage({ jobId: req.params.id, jobs, buildWorkspace, projectRoot })
     res.json({ ok: true, job })
-  } catch (error) {
-    sendError(res, error, 500)
-  }
+  } catch (error) { sendError(res, error, 500) }
+})
+
+app.post('/jobs/:id/stages/rig/run', async (req, res) => {
+  try {
+    const job = await runHumanoidRigStage({ jobId: req.params.id, jobs, buildWorkspace, projectRoot })
+    res.json({ ok: true, job })
+  } catch (error) { sendError(res, error, 500) }
 })
 
 app.post('/jobs/:id/stages/:stage/start', async (req, res) => {
-  try {
-    res.json({ ok: true, job: await jobs.startStage(req.params.id, req.params.stage) })
-  } catch (error) {
-    sendError(res, error)
-  }
+  try { res.json({ ok: true, job: await jobs.startStage(req.params.id, req.params.stage) }) }
+  catch (error) { sendError(res, error) }
 })
 
 app.post('/jobs/:id/stages/:stage/complete', async (req, res) => {
@@ -104,9 +89,7 @@ app.post('/jobs/:id/stages/:stage/complete', async (req, res) => {
         artifacts: Array.isArray(req.body?.artifacts) ? req.body.artifacts : []
       })
     })
-  } catch (error) {
-    sendError(res, error)
-  }
+  } catch (error) { sendError(res, error) }
 })
 
 app.post('/jobs/:id/stages/:stage/fail', async (req, res) => {
@@ -119,9 +102,7 @@ app.post('/jobs/:id/stages/:stage/fail', async (req, res) => {
         details: req.body?.details
       })
     })
-  } catch (error) {
-    sendError(res, error)
-  }
+  } catch (error) { sendError(res, error) }
 })
 
 app.post('/build/:target', async (req, res) => {
@@ -137,24 +118,14 @@ app.post('/build/:target', async (req, res) => {
         output: 'base_human_v003_style_dna.glb'
       }
     }
-
     if (!scripts[target]) {
       res.status(400).json({ ok: false, error: `Unknown build target: ${target}` })
       return
     }
-
     const selected = scripts[target]
     await run('blender', ['-b', '--python', path.join(projectRoot, selected.script)], projectRoot)
-
-    res.json({
-      ok: true,
-      target,
-      output: `/generated/${selected.output}`,
-      builtAt: Date.now()
-    })
-  } catch (error) {
-    sendError(res, error, 500)
-  }
+    res.json({ ok: true, target, output: `/generated/${selected.output}`, builtAt: Date.now() })
+  } catch (error) { sendError(res, error, 500) }
 })
 
 await jobs.initialize()
