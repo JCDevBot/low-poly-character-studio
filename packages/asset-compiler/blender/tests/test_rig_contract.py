@@ -8,8 +8,21 @@ ROOT = Path(__file__).resolve().parents[3]
 BLENDER_DIR = ROOT / "asset-compiler" / "blender"
 sys.path.insert(0, str(BLENDER_DIR))
 
+from generator.body_topology import (
+    TOPOLOGY_SCHEMA,
+    build_body_graph,
+    normalized_weights_for_point,
+    resolve_body_landmarks,
+    validate_body_graph,
+)
 from generator.character_dna import LittleGuyDNA
 from generator.rig_contract import JOINT_PARENTS, RIG_ID, build_joint_spec, validate_joint_spec
+
+
+def assert_blend(weights: dict[str, float], expected: set[str]) -> None:
+    assert expected.issubset(weights), (weights, expected)
+    assert abs(sum(weights.values()) - 1.0) < 1e-9
+    assert all(weight > 0 for weight in weights.values())
 
 
 def main() -> None:
@@ -19,6 +32,7 @@ def main() -> None:
     tall_joints = build_joint_spec(tall)
 
     assert RIG_ID == "humanoid-basic-v1"
+    assert TOPOLOGY_SCHEMA == "humanoid-connected-body/v1"
     assert tuple(joint.name for joint in compact_joints) == tuple(JOINT_PARENTS)
     assert compact_joints == build_joint_spec(compact)
     assert compact_joints != tall_joints
@@ -29,6 +43,68 @@ def main() -> None:
     assert by_name["shin.R"].parent == "thigh.R"
     assert by_name["foot.L"].tail[1] < by_name["foot.L"].head[1]
 
+    compact_nodes, compact_edges = build_body_graph(compact)
+    tall_nodes, _ = build_body_graph(tall)
+    validate_body_graph(compact_nodes, compact_edges)
+    assert len(compact_nodes) >= 50
+    assert len(compact_edges) == len(compact_nodes) - 1
+    assert compact_nodes == build_body_graph(compact)[0]
+    assert compact_nodes != tall_nodes
+    node_names = {node.name for node in compact_nodes}
+    for required in (
+        "neck-top",
+        "elbow-above.L",
+        "elbow.L",
+        "elbow-below.L",
+        "wrist.L",
+        "knee-above.L",
+        "knee.L",
+        "knee-below.L",
+        "ankle.L",
+        "toe.L",
+    ):
+        assert required in node_names
+
+    marks = resolve_body_landmarks(compact)
+    assert_blend(
+        normalized_weights_for_point(
+            (-marks.elbow_x, 0, marks.elbow_z),
+            compact,
+            by_name,
+        ),
+        {"upper_arm.L", "forearm.L"},
+    )
+    assert_blend(
+        normalized_weights_for_point(
+            (-marks.hip_x, 0, marks.knee_z),
+            compact,
+            by_name,
+        ),
+        {"thigh.L", "shin.L"},
+    )
+    assert_blend(
+        normalized_weights_for_point(
+            (-marks.wrist_x, 0, marks.wrist_z),
+            compact,
+            by_name,
+        ),
+        {"forearm.L", "hand.L"},
+    )
+    assert_blend(
+        normalized_weights_for_point(
+            (-marks.hip_x, 0, marks.ankle_z),
+            compact,
+            by_name,
+        ),
+        {"shin.L", "foot.L"},
+    )
+    neck_weights = normalized_weights_for_point(
+        (0, 0, marks.chest_z),
+        compact,
+        by_name,
+    )
+    assert {"chest", "neck"}.issubset(neck_weights)
+
     invalid = list(compact_joints)
     invalid.pop()
     try:
@@ -38,7 +114,16 @@ def main() -> None:
     else:
         raise AssertionError("missing joint should fail validation")
 
-    print("humanoid rig contract tests passed")
+    disconnected_edges = list(compact_edges)
+    disconnected_edges[-1] = disconnected_edges[-2]
+    try:
+        validate_body_graph(compact_nodes, disconnected_edges)
+    except ValueError as error:
+        assert "connected" in str(error).lower() or "tree" in str(error).lower()
+    else:
+        raise AssertionError("disconnected body graph should fail validation")
+
+    print("humanoid rig and connected-body contract tests passed")
 
 
 if __name__ == "__main__":
