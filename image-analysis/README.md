@@ -9,13 +9,19 @@ Generated review assets must not be committed to this public repository. They ma
 After compact and tall jobs have completed both the model and rig stages, run:
 
 ```bash
+pnpm rig-review
+```
+
+The script automatically selects the newest completed rig jobs whose StyleDNA sources are `compact fixture` and `tall fixture`. Specific job IDs may be supplied when needed:
+
+```bash
 pnpm rig-review COMPACT_JOB_ID TALL_JOB_ID
 ```
 
 The command uses `blender` by default. To use another executable:
 
 ```bash
-BLENDER_COMMAND=/path/to/blender pnpm rig-review COMPACT_JOB_ID TALL_JOB_ID
+BLENDER_COMMAND=/path/to/blender pnpm rig-review
 ```
 
 The review package is written to:
