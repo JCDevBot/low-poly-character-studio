@@ -6,9 +6,10 @@ Generated review assets must not be committed to this public repository. They ma
 
 ## PR #21 rig review
 
-After compact and tall jobs have completed both the model and rig stages, run:
+After compact and tall jobs have completed both the model and rig stages, update the branch and run:
 
 ```bash
+git pull --ff-only
 pnpm rig-review
 ```
 
