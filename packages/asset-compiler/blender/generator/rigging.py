@@ -7,8 +7,8 @@ from pathlib import Path
 from typing import Iterable
 
 import bpy
-from mathutils import Matrix
 
+from .body_topology import TOPOLOGY_SCHEMA, normalized_weights_for_point
 from .rig_contract import RIG_ID, Joint, build_joint_spec, validate_joint_spec
 
 RIG_METADATA_SCHEMA = "humanoid-rig-metadata/v1"
@@ -19,30 +19,22 @@ RIGID_PART_BONES = {
     "Face_RightEye": "head",
     "Body_LeftEar": "head",
     "Body_RightEar": "head",
-    "Body_Neck": "neck",
-    "Body_Torso": "chest",
-    "Clothing_AFrameShirt": "chest",
-    "Clothing_Boxers": "hips",
-    "Body_LeftUpperArm": "upper_arm.L",
-    "Body_RightUpperArm": "upper_arm.R",
-    "Body_LeftForearm": "forearm.L",
-    "Body_RightForearm": "forearm.R",
-    "Body_LeftHand": "hand.L",
-    "Body_RightHand": "hand.R",
-    "Body_LeftFoot": "foot.L",
-    "Body_RightFoot": "foot.R",
 }
 
-LEG_PART_BONES = {
-    "Body_LeftLeg": ("thigh.L", "shin.L"),
-    "Body_RightLeg": ("thigh.R", "shin.R"),
+DEFORMING_PARTS = {
+    "Body_Core",
+    "Clothing_AFrameShirt",
+    "Clothing_Boxers",
 }
 
 SMOKE_POSES = {
     "shoulder": {"upper_arm.L": (0.0, 0.0, 0.35), "upper_arm.R": (0.0, 0.0, -0.35)},
     "elbow": {"forearm.L": (0.45, 0.0, 0.0), "forearm.R": (0.45, 0.0, 0.0)},
+    "wrist": {"hand.L": (0.0, 0.30, 0.0), "hand.R": (0.0, -0.30, 0.0)},
     "hip": {"thigh.L": (0.25, 0.0, 0.0), "thigh.R": (-0.25, 0.0, 0.0)},
     "knee": {"shin.L": (-0.45, 0.0, 0.0), "shin.R": (-0.45, 0.0, 0.0)},
+    "ankle": {"foot.L": (0.25, 0.0, 0.0), "foot.R": (0.25, 0.0, 0.0)},
+    "neck": {"neck": (0.0, 0.0, 0.20), "head": (0.0, 0.0, 0.12)},
 }
 
 
@@ -79,88 +71,154 @@ def _clear_groups(mesh: bpy.types.Object) -> None:
         mesh.vertex_groups.remove(group)
 
 
+def _add_armature_modifier(mesh: bpy.types.Object, armature: bpy.types.Object) -> None:
+    modifier = mesh.modifiers.new(name=RIG_ID, type="ARMATURE")
+    modifier.object = armature
+    modifier.use_deform_preserve_volume = True
+
+
 def _bind_rigid(mesh: bpy.types.Object, armature: bpy.types.Object, bone_name: str) -> None:
     _clear_groups(mesh)
     group = mesh.vertex_groups.new(name=bone_name)
     group.add([vertex.index for vertex in mesh.data.vertices], 1.0, "REPLACE")
-    modifier = mesh.modifiers.new(name=RIG_ID, type="ARMATURE")
-    modifier.object = armature
+    _add_armature_modifier(mesh, armature)
 
 
-def _bind_leg(
+def _bind_deforming(
     mesh: bpy.types.Object,
     armature: bpy.types.Object,
-    upper_bone: str,
-    lower_bone: str,
-    knee_z: float,
+    dna,
+    joints: dict[str, Joint],
 ) -> None:
     _clear_groups(mesh)
-    upper = mesh.vertex_groups.new(name=upper_bone)
-    lower = mesh.vertex_groups.new(name=lower_bone)
-    blend_half_width = max(0.015, mesh.dimensions.z * 0.08)
-    inverse = mesh.matrix_world.inverted()
+    groups: dict[str, bpy.types.VertexGroup] = {}
+    max_influences = 3 if mesh.name != "Body_Core" else 2
     for vertex in mesh.data.vertices:
-        world_z = (mesh.matrix_world @ vertex.co).z
-        if world_z >= knee_z + blend_half_width:
-            upper_weight = 1.0
-        elif world_z <= knee_z - blend_half_width:
-            upper_weight = 0.0
-        else:
-            upper_weight = (world_z - (knee_z - blend_half_width)) / (blend_half_width * 2)
-        lower_weight = 1.0 - upper_weight
-        if upper_weight > 0:
-            upper.add([vertex.index], upper_weight, "REPLACE")
-        if lower_weight > 0:
-            lower.add([vertex.index], lower_weight, "REPLACE")
-    # Keep the object transform stable when the armature modifier is evaluated.
-    mesh.matrix_world = Matrix(inverse.inverted())
-    modifier = mesh.modifiers.new(name=RIG_ID, type="ARMATURE")
-    modifier.object = armature
+        world_point = tuple(mesh.matrix_world @ vertex.co)
+        weights = normalized_weights_for_point(
+            world_point,
+            dna,
+            joints,
+            part_name=mesh.name,
+            max_influences=max_influences,
+        )
+        for bone_name, weight in weights.items():
+            group = groups.get(bone_name)
+            if group is None:
+                group = mesh.vertex_groups.new(name=bone_name)
+                groups[bone_name] = group
+            group.add([vertex.index], weight, "REPLACE")
+    _add_armature_modifier(mesh, armature)
+
+
+def _mesh_component_count(mesh: bpy.types.Object) -> int:
+    vertex_count = len(mesh.data.vertices)
+    if vertex_count == 0:
+        return 0
+    adjacency = {index: set() for index in range(vertex_count)}
+    for edge in mesh.data.edges:
+        a, b = edge.vertices
+        adjacency[a].add(b)
+        adjacency[b].add(a)
+    unvisited = set(adjacency)
+    components = 0
+    while unvisited:
+        components += 1
+        pending = [unvisited.pop()]
+        while pending:
+            current = pending.pop()
+            for neighbor in adjacency[current]:
+                if neighbor in unvisited:
+                    unvisited.remove(neighbor)
+                    pending.append(neighbor)
+    return components
+
+
+def _validate_connected_body(mesh: bpy.types.Object) -> dict:
+    if mesh.get("topologySchema") != TOPOLOGY_SCHEMA:
+        raise ValueError(f"Body_Core topologySchema must be {TOPOLOGY_SCHEMA}")
+    component_count = _mesh_component_count(mesh)
+    if component_count != 1:
+        raise ValueError(f"Body_Core must be one connected mesh component; found {component_count}")
+    triangle_count = sum(max(0, len(polygon.vertices) - 2) for polygon in mesh.data.polygons)
+    if triangle_count < 400:
+        raise ValueError(
+            f"Body_Core has only {triangle_count} triangles; joint-support topology was not generated"
+        )
+    return {
+        "schema": mesh.get("topologySchema"),
+        "componentCount": component_count,
+        "triangleCount": triangle_count,
+        "vertexCount": len(mesh.data.vertices),
+    }
 
 
 def validate_skinning(meshes: Iterable[bpy.types.Object], armature: bpy.types.Object) -> dict:
+    meshes = tuple(meshes)
     valid_bones = {bone.name for bone in armature.data.bones if bone.use_deform}
     weighted_vertices = 0
+    maximum_influences = 0
     for mesh in meshes:
         if mesh.type != "MESH":
             continue
-        modifiers = [modifier for modifier in mesh.modifiers if modifier.type == "ARMATURE" and modifier.object == armature]
+        modifiers = [
+            modifier
+            for modifier in mesh.modifiers
+            if modifier.type == "ARMATURE" and modifier.object == armature
+        ]
         if len(modifiers) != 1:
             raise ValueError(f"{mesh.name} must have exactly one {RIG_ID} armature modifier")
         for vertex in mesh.data.vertices:
             total = 0.0
+            influence_count = 0
             for membership in vertex.groups:
                 group = mesh.vertex_groups[membership.group]
                 if group.name not in valid_bones:
-                    raise ValueError(f"{mesh.name} vertex {vertex.index} references invalid deform joint {group.name}")
+                    raise ValueError(
+                        f"{mesh.name} vertex {vertex.index} references invalid deform joint {group.name}"
+                    )
                 total += membership.weight
+                if membership.weight > 1e-6:
+                    influence_count += 1
             if abs(total - 1.0) > 1e-5:
-                raise ValueError(f"{mesh.name} vertex {vertex.index} weights sum to {total}, expected 1.0")
+                raise ValueError(
+                    f"{mesh.name} vertex {vertex.index} weights sum to {total}, expected 1.0"
+                )
+            maximum_influences = max(maximum_influences, influence_count)
             weighted_vertices += 1
     if weighted_vertices == 0:
         raise ValueError("Rig contains no weighted mesh vertices")
-    return {"meshCount": len(tuple(meshes)), "weightedVertexCount": weighted_vertices}
+    return {
+        "meshCount": len(meshes),
+        "weightedVertexCount": weighted_vertices,
+        "maximumInfluencesPerVertex": maximum_influences,
+    }
 
 
 def apply_humanoid_rig(root: bpy.types.Object, dna) -> tuple[bpy.types.Object, dict]:
     joints = build_joint_spec(dna)
+    joints_by_name = {joint.name: joint for joint in joints}
     armature = _create_armature(joints)
     armature.parent = root
     meshes = [child for child in root.children if child.type == "MESH"]
-    by_name = {joint.name: joint for joint in joints}
 
-    missing = sorted((set(RIGID_PART_BONES) | set(LEG_PART_BONES)) - {mesh.name for mesh in meshes})
+    expected = set(RIGID_PART_BONES) | DEFORMING_PARTS
+    names = {mesh.name for mesh in meshes}
+    missing = sorted(expected - names)
+    unknown = sorted(names - expected)
     if missing:
         raise ValueError(f"Generated humanoid is missing riggable mesh parts: {', '.join(missing)}")
+    if unknown:
+        raise ValueError(f"No deterministic skinning rule for generated meshes: {', '.join(unknown)}")
+
+    body_mesh = next(mesh for mesh in meshes if mesh.name == "Body_Core")
+    body_topology = _validate_connected_body(body_mesh)
 
     for mesh in meshes:
         if mesh.name in RIGID_PART_BONES:
             _bind_rigid(mesh, armature, RIGID_PART_BONES[mesh.name])
-        elif mesh.name in LEG_PART_BONES:
-            upper, lower = LEG_PART_BONES[mesh.name]
-            _bind_leg(mesh, armature, upper, lower, by_name[lower].head[2])
         else:
-            raise ValueError(f"No deterministic skinning rule for generated mesh {mesh.name}")
+            _bind_deforming(mesh, armature, dna, joints_by_name)
 
     validation = validate_skinning(meshes, armature)
     metadata = {
@@ -178,6 +236,7 @@ def apply_humanoid_rig(root: bpy.types.Object, dna) -> tuple[bpy.types.Object, d
             }
             for joint in joints
         ],
+        "bodyTopology": body_topology,
         "skinning": validation,
         "smokePoses": SMOKE_POSES,
     }
