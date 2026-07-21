@@ -3,6 +3,7 @@ import cors from 'cors'
 import { spawn } from 'node:child_process'
 import path from 'node:path'
 import { BuildJobStore } from './build-jobs.js'
+import { runHumanoidModelStage } from './model-runner.js'
 
 const app = express()
 app.use(cors())
@@ -70,6 +71,20 @@ app.get('/jobs/:id/artifacts', async (req, res) => {
     res.json({ ok: true, artifacts: await jobs.listArtifacts(req.params.id) })
   } catch (error) {
     sendError(res, error, 404)
+  }
+})
+
+app.post('/jobs/:id/stages/model/run', async (req, res) => {
+  try {
+    const job = await runHumanoidModelStage({
+      jobId: req.params.id,
+      jobs,
+      buildWorkspace,
+      projectRoot
+    })
+    res.json({ ok: true, job })
+  } catch (error) {
+    sendError(res, error, 500)
   }
 })
 
