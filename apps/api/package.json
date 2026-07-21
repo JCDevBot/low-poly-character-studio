@@ -6,14 +6,10 @@
   "scripts": {
     "dev": "tsx src/server.ts",
     "test:build-jobs": "tsx src/build-jobs.test.ts",
-    "test:model-runner": "tsx src/model-runner.test.ts"
+    "test:model-runner": "tsx src/model-runner.test.ts",
+    "test:rig-runner": "tsx src/rig-runner.test.ts"
   },
   "dependencies": {
-    "cors": "^2.8.5",
-    "express": "^4.18.3"
-  },
-  "devDependencies": {
-    "tsx": "^4.7.1",
-    "typescript": "^5.4.0"
+    "cors": "^4.18.3"
   }
 }
