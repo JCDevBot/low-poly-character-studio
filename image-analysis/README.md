@@ -1,19 +1,21 @@
 # Local image-analysis workspace
 
-This directory contains instructions for generating review images from local Blender artifacts. Generated PNGs, metadata copies, and ZIP archives are written under `image-analysis/output/`, which is ignored by Git.
+This directory contains instructions for generating review images from local Blender artifacts. Generated PNGs, metadata copies, build intermediates, and ZIP archives are written under `image-analysis/output/`, which is ignored by Git.
 
 Generated review assets must not be committed to this public repository. They may contain local build output or user-derived character assets. Upload the resulting ZIP directly to the review conversation instead.
 
 ## PR #21 rig review
 
-After compact and tall jobs have completed both the model and rig stages, update the branch and run:
+Update the branch and run:
 
 ```bash
 git pull --ff-only
 pnpm rig-review
 ```
 
-The script automatically selects the newest completed rig jobs whose StyleDNA sources are `compact fixture` and `tall fixture`. Specific job IDs may be supplied when needed:
+With no arguments, the command always builds fresh compact and tall fixtures from the current checkout, rigs them, renders them, and packages the result. This prevents an older completed job from being mistaken for the current implementation.
+
+To render two already-completed build jobs instead:
 
 ```bash
 pnpm rig-review COMPACT_JOB_ID TALL_JOB_ID
@@ -31,4 +33,11 @@ The review package is written to:
 image-analysis/output/pr-21-rig-review.zip
 ```
 
-For each fixture, the package contains consistent neutral turnaround views, posed deformation views, a wireframe view when supported by the installed Blender version, the rig metadata, and a render manifest.
+For each fixture, the package contains:
+
+- five consistent neutral turnaround views
+- a neutral front wireframe view
+- combined posed front, three-quarter, and side views
+- isolated shoulder, elbow, wrist, hip, knee, ankle, and neck deformation views
+- rig metadata and Blender model, rig, and render logs
+- a package manifest containing the exact Git commit and artifact source mode
