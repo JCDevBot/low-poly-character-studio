@@ -1,4 +1,5 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react'
+import { LANDMARK_KEYS, humanoidChibiAnalysisAdapter, type HumanoidReferenceAnalysis } from './reference-analysis'
 import './reference-workspace.css'
 
 type ReferenceSlotId = 'front' | 'side' | 'back'
@@ -61,9 +62,38 @@ function toInput(references: Partial<Record<ReferenceSlotId, ReferenceAsset>>): 
   }
 }
 
+function nextFrame() {
+  return new Promise<void>((resolve) => requestAnimationFrame(() => resolve()))
+}
+
+async function applyAnalysisToLandmarkEditor(analysis: HumanoidReferenceAnalysis, source: ReferenceAsset) {
+  document.querySelectorAll<HTMLElement>('.imageLayer [data-landmark]').forEach((marker) => {
+    marker.dispatchEvent(new MouseEvent('dblclick', { bubbles: true }))
+  })
+  await nextFrame()
+
+  const canvas = document.querySelector<HTMLElement>('.canvas')
+  const editorImage = document.querySelector<HTMLImageElement>('.imageLayer img')
+  if (!canvas || !editorImage) throw new Error('The landmark editor is not ready. Try analysis again after the image appears.')
+
+  const imageRect = editorImage.getBoundingClientRect()
+  if (!imageRect.width || !imageRect.height) throw new Error('The front reference is not visible in the landmark editor.')
+
+  for (const key of LANDMARK_KEYS) {
+    const point = analysis.landmarks[key]
+    const clientX = imageRect.left + (point.x / source.width) * imageRect.width
+    const clientY = imageRect.top + (point.y / source.height) * imageRect.height
+    canvas.dispatchEvent(new MouseEvent('click', { bubbles: true, clientX, clientY }))
+    await nextFrame()
+  }
+}
+
 function ReferenceWorkspace({ children }: { children: React.ReactNode }) {
   const [references, setReferences] = useState<Partial<Record<ReferenceSlotId, ReferenceAsset>>>({})
   const [errors, setErrors] = useState<Partial<Record<ReferenceSlotId, string>>>({})
+  const [analysis, setAnalysis] = useState<HumanoidReferenceAnalysis | null>(null)
+  const [analysisStatus, setAnalysisStatus] = useState<'idle' | 'running' | 'complete' | 'error'>('idle')
+  const [analysisError, setAnalysisError] = useState<string | null>(null)
   const inputRefs = useRef<Partial<Record<ReferenceSlotId, HTMLInputElement | null>>>({})
   const referenceInput = useMemo(() => toInput(references), [references])
 
@@ -126,6 +156,11 @@ function ReferenceWorkspace({ children }: { children: React.ReactNode }) {
         }
       })
       setErrors((current) => ({ ...current, [slot]: undefined }))
+      if (slot === 'front') {
+        setAnalysis(null)
+        setAnalysisStatus('idle')
+        setAnalysisError(null)
+      }
     } catch (error) {
       URL.revokeObjectURL(url)
       setErrors((current) => ({ ...current, [slot]: error instanceof Error ? error.message : 'Invalid image.' }))
@@ -149,6 +184,27 @@ function ReferenceWorkspace({ children }: { children: React.ReactNode }) {
     }))
     setReferences(Object.fromEntries(loaded))
     setErrors({})
+    setAnalysis(null)
+    setAnalysisStatus('idle')
+    setAnalysisError(null)
+  }
+
+  async function analyzeFrontReference() {
+    const front = references.front
+    if (!front) return
+    setAnalysisStatus('running')
+    setAnalysisError(null)
+    try {
+      const result = await humanoidChibiAnalysisAdapter.analyzeImageUrl(front.url)
+      await applyAnalysisToLandmarkEditor(result, front)
+      setAnalysis(result)
+      setAnalysisStatus('complete')
+      localStorage.setItem('low-poly-character-studio.reference-analysis.v1', JSON.stringify(result))
+      window.dispatchEvent(new CustomEvent('low-poly:reference-analysis-complete', { detail: result }))
+    } catch (error) {
+      setAnalysisStatus('error')
+      setAnalysisError(error instanceof Error ? error.message : 'Reference analysis failed.')
+    }
   }
 
   function remove(slot: ReferenceSlotId) {
@@ -159,6 +215,11 @@ function ReferenceWorkspace({ children }: { children: React.ReactNode }) {
       delete next[slot]
       return next
     })
+    if (slot === 'front') {
+      setAnalysis(null)
+      setAnalysisStatus('idle')
+      setAnalysisError(null)
+    }
     if (inputRefs.current[slot]) inputRefs.current[slot]!.value = ''
   }
 
@@ -203,11 +264,34 @@ function ReferenceWorkspace({ children }: { children: React.ReactNode }) {
             )
           })}
         </div>
-        {!references.front ? <p className="referenceRequirement" role="status">Add a front reference before generation.</p> : null}
+        {!references.front ? <p className="referenceRequirement" role="status">Add a front reference before generation.</p> : (
+          <section className="referenceAnalysis" aria-label="Automated reference analysis">
+            <div>
+              <strong>Automated starting point</strong>
+              <p>Estimate silhouette, proportions, colors, and landmarks locally. Inferred markers remain editable.</p>
+            </div>
+            <button type="button" onClick={analyzeFrontReference} disabled={analysisStatus === 'running'}>
+              {analysisStatus === 'running' ? 'Analyzing…' : analysis ? 'Analyze again' : 'Analyze front reference'}
+            </button>
+            {analysis ? (
+              <div className={`analysisSummary ${analysis.confidence.level}`} role="status">
+                <strong>{Math.round(analysis.confidence.overall * 100)}% {analysis.confidence.level} confidence</strong>
+                {analysis.warnings.map((warning) => <p key={warning.code}>{warning.message}</p>)}
+              </div>
+            ) : null}
+            {analysisError ? <p className="referenceError" role="alert">{analysisError} Uploaded references were preserved; place landmarks manually or retry.</p> : null}
+          </section>
+        )}
         <details>
           <summary>Versioned job input</summary>
           <pre>{JSON.stringify(referenceInput, null, 2)}</pre>
         </details>
+        {analysis ? (
+          <details>
+            <summary>Versioned analysis result</summary>
+            <pre>{JSON.stringify(analysis, null, 2)}</pre>
+          </details>
+        ) : null}
       </section>
       {children}
     </div>
