@@ -16,9 +16,13 @@ const validFixture = {
   goldStandard: undefined,
 };
 
-test("registry lists and resolves humanoid/chibi-v1", () => {
-  assert.deepEqual(modelTypeRegistry.list().map((manifest) => manifest.id), ["humanoid/chibi-v1"]);
+test("registry lists available and planned model types", () => {
+  assert.deepEqual(modelTypeRegistry.list().map((manifest) => manifest.id), [
+    "humanoid/chibi-v1",
+    "animal/quadruped-v0",
+  ]);
   assert.equal(modelTypeRegistry.require("humanoid/chibi-v1").name, "Chibi Humanoid");
+  assert.equal(modelTypeRegistry.require("animal/quadruped-v0").status, "planned");
 });
 
 test("humanoid manifest defines required and optional reference slots", () => {
@@ -64,6 +68,6 @@ test("duplicate manifest ids fail registry construction", () => {
 test("unknown ids include available choices", () => {
   assert.throws(
     () => modelTypeRegistry.require("missing/type"),
-    /Available model types: humanoid\/chibi-v1/,
+    /Available model types: humanoid\/chibi-v1, animal\/quadruped-v0/,
   );
 });
