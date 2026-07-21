@@ -1,7 +1,31 @@
+.referenceWorkspace {
+  height: 100vh;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
 .referenceManager {
+  flex: 0 0 auto;
+  max-height: 42vh;
+  overflow: auto;
   border-bottom: 1px solid #2b3143;
   background: #151823;
   padding: 14px;
+}
+
+.referenceManager.collapsed {
+  max-height: none;
+  overflow: hidden;
+  padding: 8px 14px;
+}
+
+.referenceManager.collapsed .referenceManagerHeading {
+  margin-bottom: 0;
+}
+
+.referenceManager.collapsed .referenceManagerBody {
+  display: none;
 }
 
 .referenceManagerHeading {
@@ -14,6 +38,7 @@
 
 .referenceManagerHeading h2 { margin: 0 0 4px; }
 .referenceManagerHeading p { font-size: 13px; }
+.referenceManagerHeadingActions { display: flex; gap: 8px; flex-wrap: wrap; justify-content: flex-end; }
 .referenceManagerHeading button,
 .referenceSlotActions button,
 .referenceAnalysis button {
@@ -80,7 +105,9 @@
 
 @media (max-width: 900px) {
   .referenceSlots { grid-template-columns: 1fr; }
+  .referenceManager { max-height: 50vh; }
   .referenceManagerHeading { align-items: flex-start; flex-direction: column; }
+  .referenceManagerHeadingActions { width: 100%; justify-content: flex-start; }
   .referenceAnalysis { grid-template-columns: 1fr; }
   .analysisSummary { grid-column: 1; }
 }
