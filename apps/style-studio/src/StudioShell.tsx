@@ -21,7 +21,7 @@ function StudioShell() {
         <span><strong>{selected.name}</strong> · {selected.id}</span>
         <button type="button" onClick={() => setSelected(null)}>Change model type</button>
       </div>
-      <ReferenceWorkspace modelType={selected}>
+      <ReferenceWorkspace>
         <App />
       </ReferenceWorkspace>
     </div>
