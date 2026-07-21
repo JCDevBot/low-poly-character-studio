@@ -47,6 +47,84 @@ def _apply_modifier(obj, modifier):
     bpy.ops.object.modifier_apply(modifier=modifier.name)
 
 
+def _mesh_component_count(obj):
+    vertex_count = len(obj.data.vertices)
+    if vertex_count == 0:
+        return 0
+    adjacency = {index: set() for index in range(vertex_count)}
+    for edge in obj.data.edges:
+        a, b = edge.vertices
+        adjacency[a].add(b)
+        adjacency[b].add(a)
+    unvisited = set(adjacency)
+    components = 0
+    while unvisited:
+        components += 1
+        pending = [unvisited.pop()]
+        while pending:
+            current = pending.pop()
+            for neighbor in adjacency[current]:
+                if neighbor in unvisited:
+                    unvisited.remove(neighbor)
+                    pending.append(neighbor)
+    return components
+
+
+def _fuse_body_components(obj, dna):
+    """Voxel-union Skin modifier branches into one manifold deforming body."""
+    initial_components = _mesh_component_count(obj)
+    obj["preFusionComponentCount"] = initial_components
+    if initial_components == 1:
+        obj["fusionMethod"] = "not-required"
+        obj["fusionVoxelSize"] = 0.0
+        obj["fusionAttemptCount"] = 0
+        return
+
+    smallest_limb_radius = min(dna.arm_radius, dna.thigh_radius, dna.calf_radius)
+    base_voxel_size = max(0.0075, smallest_limb_radius * 0.42)
+    attempts = []
+
+    for factor in (1.0, 1.35, 1.75):
+        voxel_size = base_voxel_size * factor
+        _activate(obj)
+        obj.data.remesh_mode = "VOXEL"
+        obj.data.remesh_voxel_size = voxel_size
+        obj.data.remesh_voxel_adaptivity = 0.0
+        if hasattr(obj.data, "use_remesh_fix_poles"):
+            obj.data.use_remesh_fix_poles = True
+        if hasattr(obj.data, "use_remesh_preserve_volume"):
+            obj.data.use_remesh_preserve_volume = False
+        if hasattr(obj.data, "use_remesh_preserve_attributes"):
+            obj.data.use_remesh_preserve_attributes = False
+
+        result = bpy.ops.object.voxel_remesh()
+        if "FINISHED" not in result:
+            raise ValueError(
+                f"Body_Core voxel remesh did not finish at voxel size {voxel_size}: {result}"
+            )
+        bpy.context.view_layer.update()
+        component_count = _mesh_component_count(obj)
+        attempts.append((voxel_size, component_count))
+        if component_count == 1:
+            obj["fusionMethod"] = "voxel-remesh"
+            obj["fusionVoxelSize"] = voxel_size
+            obj["fusionAttemptCount"] = len(attempts)
+            print(
+                "Fused Body_Core mesh components "
+                f"{initial_components} -> 1 at voxel size {voxel_size:.6f}"
+            )
+            return
+
+    attempt_summary = ", ".join(
+        f"{voxel_size:.6f}:{component_count}"
+        for voxel_size, component_count in attempts
+    )
+    raise ValueError(
+        "Body_Core voxel fusion could not produce one connected component; "
+        f"started with {initial_components}; attempts={attempt_summary}"
+    )
+
+
 def cube(name, loc, scale, material, bevel_width=0.015):
     bpy.ops.mesh.primitive_cube_add(size=1, location=loc)
     obj = bpy.context.object
@@ -175,6 +253,8 @@ def connected_body(name, dna: LittleGuyDNA, material):
     subdivision.render_levels = 1
     _apply_modifier(obj, subdivision)
 
+    _fuse_body_components(obj, dna)
+
     triangle_count = sum(max(0, len(polygon.vertices) - 2) for polygon in obj.data.polygons)
     if triangle_count > 2800:
         decimate = obj.modifiers.new("low_poly_triangle_budget", "DECIMATE")
@@ -183,6 +263,14 @@ def connected_body(name, dna: LittleGuyDNA, material):
         _apply_modifier(obj, decimate)
         triangle_count = sum(max(0, len(polygon.vertices) - 2) for polygon in obj.data.polygons)
 
+    final_components = _mesh_component_count(obj)
+    if final_components != 1:
+        raise ValueError(
+            "Body_Core lost connected topology after low-poly reduction; "
+            f"found {final_components} components"
+        )
+
+    obj["finalComponentCount"] = final_components
     obj["triangleCount"] = triangle_count
     lowpoly(obj)
     return obj
