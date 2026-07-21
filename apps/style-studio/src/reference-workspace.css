@@ -15,7 +15,8 @@
 .referenceManagerHeading h2 { margin: 0 0 4px; }
 .referenceManagerHeading p { font-size: 13px; }
 .referenceManagerHeading button,
-.referenceSlotActions button {
+.referenceSlotActions button,
+.referenceAnalysis button {
   background: #24293a;
   border: 1px solid #3a425c;
   color: #fff;
@@ -24,6 +25,8 @@
   cursor: pointer;
   font-weight: 700;
 }
+
+.referenceAnalysis button:disabled { cursor: progress; opacity: 0.65; }
 
 .referenceSlots {
   display: grid;
@@ -54,10 +57,30 @@
 .referenceManager summary { cursor: pointer; color: #c6cde1; }
 .referenceManager pre { margin-top: 8px; max-height: 180px; overflow: auto; background: #0d0f15; padding: 10px; border-radius: 8px; }
 
+.referenceAnalysis {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 10px 16px;
+  margin-top: 12px;
+  padding: 12px;
+  border: 1px solid #30374d;
+  border-radius: 10px;
+  background: #1b1f2d;
+}
+
+.referenceAnalysis p { margin: 4px 0 0; font-size: 12px; color: #c6cde1; }
+.analysisSummary { grid-column: 1 / -1; border-left: 3px solid #ffd66b; padding-left: 10px; }
+.analysisSummary.high { border-left-color: #74d99f; }
+.analysisSummary.low { border-left-color: #ff9f8f; }
+.analysisSummary strong { font-size: 13px; text-transform: capitalize; }
+
 /* Bundled references remain available through the explicit example preset above. */
 .referenceWorkspace .sidebar > .reference { display: none; }
 
 @media (max-width: 900px) {
   .referenceSlots { grid-template-columns: 1fr; }
   .referenceManagerHeading { align-items: flex-start; flex-direction: column; }
+  .referenceAnalysis { grid-template-columns: 1fr; }
+  .analysisSummary { grid-column: 1; }
 }
