@@ -66,5 +66,8 @@ jobs:
       - name: Test humanoid StyleDNA contracts
         run: python3 packages/asset-compiler/blender/tests/test_style_dna.py
 
+      - name: Test humanoid rig contracts
+        run: python3 packages/asset-compiler/blender/tests/test_rig_contract.py
+
       - name: Compile Python sources
         run: python3 -m compileall -q packages/asset-compiler/blender/generator packages/asset-compiler/blender/scripts
