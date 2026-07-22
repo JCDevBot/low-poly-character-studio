@@ -48,6 +48,11 @@ ISOLATED_POSES = (
     ("isolated-neck-three-quarter", {"neck": (WORLD_Y, math.radians(18.0))}, (-1.0, -1.0, 0.0)),
 )
 
+FOCUSED_DIAGNOSTICS = {
+    "isolated-shoulder-front": ("isolated-shoulder-closeup-front", "upper_arm.L", 0.30),
+    "isolated-hip-side": ("isolated-hip-closeup-side", "thigh.L", 0.32),
+}
+
 
 def parse_args():
     parser = argparse.ArgumentParser(description="Render a deterministic rig-review image set")
@@ -161,8 +166,26 @@ def position_camera(camera, direction):
     camera.data.clip_end = max(100.0, distance * 4.0)
 
 
+def position_focused_camera(camera, direction, center, ortho_scale):
+    horizontal = Vector((direction[0], direction[1], 0.0)).normalized()
+    distance = ortho_scale * 5.0
+    camera.location = center + horizontal * distance
+    camera.rotation_euler = (center - camera.location).to_track_quat("-Z", "Y").to_euler()
+    camera.data.ortho_scale = ortho_scale
+    camera.data.clip_start = 0.01
+    camera.data.clip_end = max(100.0, distance * 4.0)
+
+
 def render_view(scene, camera, output_dir, name, direction):
     position_camera(camera, direction)
+    output_path = output_dir / f"{name}.png"
+    scene.render.filepath = str(output_path)
+    bpy.ops.render.render(write_still=True)
+    return output_path.name
+
+
+def render_focused_view(scene, camera, output_dir, name, direction, center, ortho_scale):
+    position_focused_camera(camera, direction, center, ortho_scale)
     output_path = output_dir / f"{name}.png"
     scene.render.filepath = str(output_path)
     bpy.ops.render.render(write_still=True)
@@ -259,14 +282,41 @@ def main():
         images.append(render_view(scene, camera, args.output_dir, name, direction))
 
     isolated_manifest = {}
+    focused_manifest = {}
+    minimum, maximum = evaluated_bounds()
+    character_height = maximum.z - minimum.z
     for name, pose, direction in ISOLATED_POSES:
         set_pose(armature, pose)
         images.append(render_view(scene, camera, args.output_dir, name, direction))
         isolated_manifest[name] = _pose_manifest(pose)
+        focused = FOCUSED_DIAGNOSTICS.get(name)
+        if focused is not None:
+            focused_name, bone_name, scale_ratio = focused
+            pose_bone = armature.pose.bones.get(bone_name)
+            if pose_bone is None:
+                raise ValueError(f"Focused rig review requires pose bone {bone_name}")
+            center = armature.matrix_world @ pose_bone.head
+            ortho_scale = max(character_height * scale_ratio, 0.22)
+            images.append(
+                render_focused_view(
+                    scene,
+                    camera,
+                    args.output_dir,
+                    focused_name,
+                    direction,
+                    center,
+                    ortho_scale,
+                )
+            )
+            focused_manifest[focused_name] = {
+                "sourcePose": name,
+                "focusBone": bone_name,
+                "orthoScale": ortho_scale,
+            }
 
     set_pose(armature, {})
     manifest = {
-        "schema": "rig-review-render/v3",
+        "schema": "rig-review-render/v4",
         "label": args.label,
         "inputBlend": args.input_blend.name,
         "blenderVersion": bpy.app.version_string,
@@ -274,6 +324,7 @@ def main():
         "poseSpace": "armature-axis-angle",
         "reviewPose": _pose_manifest(REVIEW_POSE),
         "isolatedPoses": isolated_manifest,
+        "focusedDiagnostics": focused_manifest,
         "wireframeMode": "evaluated-geometry",
         "images": images,
     }
