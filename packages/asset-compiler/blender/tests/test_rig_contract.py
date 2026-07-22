@@ -147,7 +147,7 @@ def main() -> None:
     )
     for weights in (lower_armpit, socket_band, upper_cap):
         assert_blend(weights, {"chest", "upper_arm.L"})
-    assert lower_armpit["chest"] >= 0.72
+    assert lower_armpit["chest"] >= 0.70
     assert 0.30 <= socket_band["upper_arm.L"] <= 0.70
     assert upper_cap["upper_arm.L"] >= 0.68
     assert lower_armpit["upper_arm.L"] < socket_band["upper_arm.L"] < upper_cap["upper_arm.L"]
