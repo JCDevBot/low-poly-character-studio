@@ -5,7 +5,7 @@ import sys
 from pathlib import Path
 
 import bpy
-from mathutils import Vector
+from mathutils import Matrix, Vector
 
 
 NEUTRAL_VIEWS = (
@@ -22,25 +22,30 @@ POSED_VIEWS = (
     ("posed-side", (-1.0, 0.0, 0.0)),
 )
 
+WORLD_X = (1.0, 0.0, 0.0)
+WORLD_Y = (0.0, 1.0, 0.0)
+
+# Pose values are armature-space axis/angle pairs. Converting those axes into
+# each bone's rest basis makes the review independent of implicit bone roll.
 REVIEW_POSE = {
-    "upper_arm.L": (0.0, 0.0, math.radians(42.0)),
-    "forearm.L": (math.radians(58.0), 0.0, 0.0),
-    "hand.L": (0.0, math.radians(18.0), 0.0),
-    "thigh.L": (math.radians(24.0), 0.0, 0.0),
-    "shin.L": (math.radians(-46.0), 0.0, 0.0),
-    "foot.L": (math.radians(16.0), 0.0, 0.0),
-    "neck": (0.0, 0.0, math.radians(8.0)),
-    "head": (0.0, 0.0, math.radians(12.0)),
+    "upper_arm.L": (WORLD_Y, math.radians(-42.0)),
+    "forearm.L": (WORLD_X, math.radians(58.0)),
+    "hand.L": (WORLD_X, math.radians(18.0)),
+    "thigh.L": (WORLD_X, math.radians(24.0)),
+    "shin.L": (WORLD_X, math.radians(-46.0)),
+    "foot.L": (WORLD_X, math.radians(16.0)),
+    "neck": (WORLD_Y, math.radians(8.0)),
+    "head": (WORLD_Y, math.radians(12.0)),
 }
 
 ISOLATED_POSES = (
-    ("isolated-shoulder-front", {"upper_arm.L": (0.0, 0.0, math.radians(45.0))}, (0.0, -1.0, 0.0)),
-    ("isolated-elbow-three-quarter", {"forearm.L": (math.radians(62.0), 0.0, 0.0)}, (-1.0, -1.0, 0.0)),
-    ("isolated-wrist-front", {"hand.L": (0.0, math.radians(28.0), 0.0)}, (0.0, -1.0, 0.0)),
-    ("isolated-hip-side", {"thigh.L": (math.radians(28.0), 0.0, 0.0)}, (-1.0, 0.0, 0.0)),
-    ("isolated-knee-side", {"shin.L": (math.radians(-52.0), 0.0, 0.0)}, (-1.0, 0.0, 0.0)),
-    ("isolated-ankle-side", {"foot.L": (math.radians(24.0), 0.0, 0.0)}, (-1.0, 0.0, 0.0)),
-    ("isolated-neck-three-quarter", {"neck": (0.0, 0.0, math.radians(18.0))}, (-1.0, -1.0, 0.0)),
+    ("isolated-shoulder-front", {"upper_arm.L": (WORLD_Y, math.radians(-45.0))}, (0.0, -1.0, 0.0)),
+    ("isolated-elbow-three-quarter", {"forearm.L": (WORLD_X, math.radians(62.0))}, (-1.0, -1.0, 0.0)),
+    ("isolated-wrist-front", {"hand.L": (WORLD_X, math.radians(28.0))}, (0.0, -1.0, 0.0)),
+    ("isolated-hip-side", {"thigh.L": (WORLD_X, math.radians(28.0))}, (-1.0, 0.0, 0.0)),
+    ("isolated-knee-side", {"shin.L": (WORLD_X, math.radians(-52.0))}, (-1.0, 0.0, 0.0)),
+    ("isolated-ankle-side", {"foot.L": (WORLD_X, math.radians(24.0))}, (-1.0, 0.0, 0.0)),
+    ("isolated-neck-three-quarter", {"neck": (WORLD_Y, math.radians(18.0))}, (-1.0, -1.0, 0.0)),
 )
 
 
@@ -94,16 +99,27 @@ def find_armature():
     return armature
 
 
+def _armature_axis_rotation(pose_bone, axis, angle):
+    rest_basis = pose_bone.bone.matrix_local.to_3x3()
+    armature_rotation = Matrix.Rotation(angle, 3, Vector(axis))
+    local_rotation = rest_basis.inverted() @ armature_rotation @ rest_basis
+    return local_rotation.to_quaternion()
+
+
 def set_pose(armature, rotations):
     bpy.ops.object.select_all(action="DESELECT")
     armature.select_set(True)
     bpy.context.view_layer.objects.active = armature
     bpy.ops.object.mode_set(mode="POSE")
     for pose_bone in armature.pose.bones:
-        pose_bone.rotation_mode = "XYZ"
-        pose_bone.rotation_euler = rotations.get(pose_bone.name, (0.0, 0.0, 0.0))
         pose_bone.location = (0.0, 0.0, 0.0)
         pose_bone.scale = (1.0, 1.0, 1.0)
+        pose_bone.rotation_mode = "QUATERNION"
+        pose_bone.rotation_quaternion.identity()
+        spec = rotations.get(pose_bone.name)
+        if spec is not None:
+            axis, angle = spec
+            pose_bone.rotation_quaternion = _armature_axis_rotation(pose_bone, axis, angle)
     bpy.ops.object.mode_set(mode="OBJECT")
     bpy.context.view_layer.update()
 
@@ -215,6 +231,13 @@ def render_wireframe(scene, camera, output_dir):
         shading.color_type = previous_shading["color_type"]
 
 
+def _pose_manifest(rotations):
+    return {
+        bone: {"axis": list(axis), "angleRadians": angle}
+        for bone, (axis, angle) in rotations.items()
+    }
+
+
 def main():
     args = parse_args()
     if not args.input_blend.is_file():
@@ -239,17 +262,18 @@ def main():
     for name, pose, direction in ISOLATED_POSES:
         set_pose(armature, pose)
         images.append(render_view(scene, camera, args.output_dir, name, direction))
-        isolated_manifest[name] = {bone: list(rotation) for bone, rotation in pose.items()}
+        isolated_manifest[name] = _pose_manifest(pose)
 
     set_pose(armature, {})
     manifest = {
-        "schema": "rig-review-render/v2",
+        "schema": "rig-review-render/v3",
         "label": args.label,
         "inputBlend": args.input_blend.name,
         "blenderVersion": bpy.app.version_string,
         "rigId": armature.get("rigId", armature.name),
-        "reviewPoseRadians": {name: list(rotation) for name, rotation in REVIEW_POSE.items()},
-        "isolatedPosesRadians": isolated_manifest,
+        "poseSpace": "armature-axis-angle",
+        "reviewPose": _pose_manifest(REVIEW_POSE),
+        "isolatedPoses": isolated_manifest,
         "wireframeMode": "evaluated-geometry",
         "images": images,
     }
