@@ -150,7 +150,9 @@ class LittleGuyDNA:
 
     @property
     def arm_radius(self) -> float:
-        return self.head_height * 0.100
+        # Slightly fuller upper limbs give the shoulder socket enough neutral
+        # volume for basic abduction while preserving the compact chibi read.
+        return self.head_height * 0.108
 
     @property
     def leg_length(self) -> float:
