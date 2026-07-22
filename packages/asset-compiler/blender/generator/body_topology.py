@@ -118,9 +118,6 @@ def build_body_graph(dna) -> tuple[tuple[BodyNode, ...], tuple[tuple[int, int], 
         add(f"calf.{suffix}", (x, 0, (marks.knee_z + marks.ankle_z) * 0.5), (dna.calf_radius * 1.08, dna.calf_radius * 1.02), f"knee-below.{suffix}")
         add(f"ankle-above.{suffix}", (x, 0, marks.ankle_z + leg_band * 0.72), (dna.calf_radius * 0.84, dna.calf_radius * 0.79), f"calf.{suffix}")
         add(f"ankle.{suffix}", (x, 0, marks.ankle_z), (dna.calf_radius * 0.72, dna.calf_radius * 0.68), f"ankle-above.{suffix}")
-        # The visible broad foot is a rigid presentation shell. Keep only a short
-        # deforming anchor inside that shell so the Skin endpoint cannot protrude
-        # beneath or beyond the visible foot during neutral or posed review.
         add(
             f"foot-core.{suffix}",
             (x, -dna.foot_length * 0.16, dna.foot_height * 0.90),
@@ -204,19 +201,45 @@ def _segment_distance(point, start, end) -> float:
     return sqrt(dx * dx + dy * dy + dz * dz)
 
 
+def _smoothstep(value: float) -> float:
+    value = max(0.0, min(1.0, value))
+    return value * value * (3.0 - 2.0 * value)
+
+
 def normalized_weights_for_point(point, dna, joints: Mapping[str, object], part_name: str = "Body_Core", max_influences: int = 3) -> dict[str, float]:
     x, _, z = point
     marks = resolve_body_landmarks(dna)
     if part_name == "Body_Core" and z <= marks.ankle_z + dna.calf_radius * 0.18:
         side = "L" if x < 0 else "R"
         return {f"foot.{side}": 1.0}
-    if part_name == "Body_Core" and marks.hips_z - dna.thigh_radius * 0.70 <= z <= marks.hips_z + dna.thigh_radius * 0.55:
-        side = "L" if x < 0 else "R"
-        lateral = min(1.0, abs(x) / max(marks.hip_x * 1.15, 1e-6))
-        thigh_weight = max(0.0, (lateral - 0.22) / 0.78) * 0.72
-        if thigh_weight > 1e-6:
-            return {"hips": 1.0 - thigh_weight, f"thigh.{side}": thigh_weight}
-        return {"hips": 1.0}
+
+    if part_name == "Body_Core":
+        shoulder_half_height = dna.arm_radius * 1.65
+        shoulder_inner_x = dna.torso_width * 0.28
+        shoulder_outer_x = marks.shoulder_x + dna.arm_radius * 0.65
+        if (
+            abs(z - marks.shoulder_z) <= shoulder_half_height
+            and shoulder_inner_x <= abs(x) <= shoulder_outer_x
+        ):
+            side = "L" if x < 0 else "R"
+            lateral = (abs(x) - shoulder_inner_x) / max(shoulder_outer_x - shoulder_inner_x, 1e-6)
+            vertical = 1.0 - abs(z - marks.shoulder_z) / shoulder_half_height
+            arm_weight = 0.12 + _smoothstep(lateral) * (0.50 + 0.10 * _smoothstep(vertical))
+            arm_weight = min(0.68, max(0.12, arm_weight))
+            return {"chest": 1.0 - arm_weight, f"upper_arm.{side}": arm_weight}
+
+        hip_half_height = dna.thigh_radius * 1.15
+        if marks.hips_z - hip_half_height <= z <= marks.hips_z + dna.thigh_radius * 0.55:
+            side = "L" if x < 0 else "R"
+            inner_x = max(dna.waist_width * 0.16, marks.hip_x - dna.thigh_radius * 1.35)
+            outer_x = marks.hip_x + dna.thigh_radius * 1.10
+            lateral = (abs(x) - inner_x) / max(outer_x - inner_x, 1e-6)
+            below_socket = (marks.hips_z + dna.thigh_radius * 0.25 - z) / max(hip_half_height, 1e-6)
+            thigh_weight = _smoothstep(lateral) * (0.26 + 0.34 * _smoothstep(below_socket))
+            thigh_weight = min(0.60, max(0.0, thigh_weight))
+            if thigh_weight > 1e-6:
+                return {"hips": 1.0 - thigh_weight, f"thigh.{side}": thigh_weight}
+            return {"hips": 1.0}
 
     candidates = candidate_bones_for_point(point, dna, part_name)
     scored: list[tuple[float, str]] = []
