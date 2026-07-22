@@ -10,6 +10,7 @@ BLENDER_DIR = SCRIPT_DIR.parent
 sys.path.append(str(BLENDER_DIR))
 
 from generator.character_dna import LittleGuyDNA
+from generator.presentation_geometry import refine_presentation_geometry
 from generator.style_dna import generation_metadata, load_style_dna
 from scripts.build_base_human import add_scene_setup, build_human, clear_scene
 
@@ -35,7 +36,7 @@ def save_outputs(output_dir: Path, metadata: dict):
     metadata_path.write_text(json.dumps(metadata, indent=2) + "\n", encoding="utf-8")
 
     print(f"Saved blend: {blend_path}")
-    print(f"Saved glb: {glb_path}")
+    print(f"Saved glb:   {glb_path}")
     print(f"Saved metadata: {metadata_path}")
 
 
@@ -56,6 +57,7 @@ def main():
 
     clear_scene()
     root = build_human(dna)
+    refine_presentation_geometry(root, dna)
     root["modelTypeId"] = metadata["modelTypeId"]
     root["styleDnaSchema"] = metadata["styleDnaSchema"]
     root["jobId"] = args.job_id
