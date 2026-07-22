@@ -28,11 +28,11 @@ def parse_args():
 
 
 def add_deformation_preservation(armature):
-    """Add a restrained post-armature correction for shoulder and hip volume loss.
+    """Add a bounded post-armature correction for shoulder and hip volume loss.
 
     The connected Skin/voxel body is intentionally faceted, but its irregular
     joint triangles can fold sharply during basic abduction and flexion. A
-    low-strength Corrective Smooth modifier after the armature uses the neutral
+    moderate Corrective Smooth modifier after the armature uses the neutral
     generated mesh as the rest reference and reduces those local collapses. It
     remains non-destructive and is evaluated by Blender for review and GLB export.
     """
@@ -55,8 +55,8 @@ def add_deformation_preservation(armature):
         body.modifiers.remove(existing)
 
     modifier = body.modifiers.new(DEFORMATION_PRESERVATION_MODIFIER, "CORRECTIVE_SMOOTH")
-    modifier.factor = 0.28
-    modifier.iterations = 3
+    modifier.factor = 0.55
+    modifier.iterations = 6
     modifier.smooth_type = "LENGTH_WEIGHTED"
     modifier.rest_source = "ORCO"
     modifier.scale = 1.0
