@@ -47,7 +47,7 @@ def main() -> None:
     compact_nodes, compact_edges = build_body_graph(compact)
     tall_nodes, _ = build_body_graph(tall)
     validate_body_graph(compact_nodes, compact_edges)
-    assert len(compact_nodes) >= 48
+    assert len(compact_nodes) >= 50
     assert len(compact_edges) == len(compact_nodes) - 1
     assert compact_nodes == build_body_graph(compact)[0]
     assert compact_nodes != tall_nodes
@@ -55,8 +55,10 @@ def main() -> None:
     for required in (
         "upper-chest",
         "neck-top",
-        "armpit-support.L",
-        "armpit-support.R",
+        "lower-armpit-support.L",
+        "lower-armpit-support.R",
+        "upper-socket-support.L",
+        "upper-socket-support.R",
         "elbow-above.L",
         "elbow.L",
         "elbow-below.L",
@@ -68,96 +70,49 @@ def main() -> None:
         "foot-core.L",
     ):
         assert required in node_names
+    assert "armpit-support.L" not in node_names
     assert "toe-tip.L" not in node_names
 
     nodes_by_name = {node.name: node for node in compact_nodes}
     left_clavicle = nodes_by_name["clavicle.L"]
-    left_support = nodes_by_name["armpit-support.L"]
+    lower_support = nodes_by_name["lower-armpit-support.L"]
+    upper_support = nodes_by_name["upper-socket-support.L"]
     left_shoulder = nodes_by_name["shoulder.L"]
-    assert abs(left_clavicle.point[0]) < abs(left_support.point[0]) < abs(left_shoulder.point[0])
-    assert left_support.point[2] < left_shoulder.point[2]
-    assert left_support.radius[0] > left_shoulder.radius[0]
+    assert abs(left_clavicle.point[0]) < abs(lower_support.point[0]) < abs(upper_support.point[0]) < abs(left_shoulder.point[0])
+    assert lower_support.point[2] < upper_support.point[2] < left_shoulder.point[2]
+    assert lower_support.radius[0] > upper_support.radius[0] > left_shoulder.radius[0]
     node_index = {node.name: index for index, node in enumerate(compact_nodes)}
-    assert (node_index["clavicle.L"], node_index["armpit-support.L"]) in compact_edges
-    assert (node_index["armpit-support.L"], node_index["shoulder.L"]) in compact_edges
+    assert (node_index["clavicle.L"], node_index["lower-armpit-support.L"]) in compact_edges
+    assert (node_index["lower-armpit-support.L"], node_index["upper-socket-support.L"]) in compact_edges
+    assert (node_index["upper-socket-support.L"], node_index["shoulder.L"]) in compact_edges
 
     marks = resolve_body_landmarks(compact)
     assert compact.head_bottom_z - marks.shoulder_z < compact.head_height * 0.28
     assert marks.neck_top_z - compact.neck_z < compact.head_height * 0.18
     assert compact.foot_width > compact.calf_radius * 3
 
-    assert_blend(
-        normalized_weights_for_point(
-            (-marks.elbow_x, 0, marks.elbow_z),
-            compact,
-            by_name,
-        ),
-        {"upper_arm.L", "forearm.L"},
-    )
-    assert_blend(
-        normalized_weights_for_point(
-            (-marks.hip_x, 0, marks.knee_z),
-            compact,
-            by_name,
-        ),
-        {"thigh.L", "shin.L"},
-    )
-    assert_blend(
-        normalized_weights_for_point(
-            (-marks.wrist_x, 0, marks.wrist_z),
-            compact,
-            by_name,
-        ),
-        {"forearm.L", "hand.L"},
-    )
-    ankle_transition = normalized_weights_for_point(
-        (-marks.hip_x, 0, marks.ankle_z + compact.calf_radius * 0.35),
-        compact,
-        by_name,
-    )
+    assert_blend(normalized_weights_for_point((-marks.elbow_x, 0, marks.elbow_z), compact, by_name), {"upper_arm.L", "forearm.L"})
+    assert_blend(normalized_weights_for_point((-marks.hip_x, 0, marks.knee_z), compact, by_name), {"thigh.L", "shin.L"})
+    assert_blend(normalized_weights_for_point((-marks.wrist_x, 0, marks.wrist_z), compact, by_name), {"forearm.L", "hand.L"})
+    ankle_transition = normalized_weights_for_point((-marks.hip_x, 0, marks.ankle_z + compact.calf_radius * 0.35), compact, by_name)
     assert_blend(ankle_transition, {"shin.L", "foot.L"})
-    foot_core_weights = normalized_weights_for_point(
-        (-marks.hip_x, -compact.foot_length * 0.16, compact.foot_height * 0.90),
-        compact,
-        by_name,
-    )
+    foot_core_weights = normalized_weights_for_point((-marks.hip_x, -compact.foot_length * 0.16, compact.foot_height * 0.90), compact, by_name)
     assert foot_core_weights == {"foot.L": 1.0}
 
-    neck_weights = normalized_weights_for_point(
-        (0, 0, marks.chest_z),
-        compact,
-        by_name,
-    )
+    neck_weights = normalized_weights_for_point((0, 0, marks.chest_z), compact, by_name)
     assert {"chest", "neck"}.issubset(neck_weights)
 
     shoulder_point = (-marks.shoulder_x * 0.92, 0, marks.shoulder_z)
     shoulder_candidates = candidate_bones_for_point(shoulder_point, compact)
     assert "chest" in shoulder_candidates
     assert "upper_arm.L" in shoulder_candidates
-    shoulder_weights = normalized_weights_for_point(
-        shoulder_point,
-        compact,
-        by_name,
-        max_influences=3,
-    )
+    shoulder_weights = normalized_weights_for_point(shoulder_point, compact, by_name, max_influences=3)
     assert_blend(shoulder_weights, {"chest", "upper_arm.L"})
 
     shoulder_x = -(marks.shoulder_x + compact.arm_radius * 0.24)
-    lower_armpit = normalized_weights_for_point(
-        (shoulder_x, 0, marks.shoulder_z - compact.arm_radius * 1.20),
-        compact,
-        by_name,
-    )
-    socket_band = normalized_weights_for_point(
-        (shoulder_x, 0, marks.shoulder_z - compact.arm_radius * 0.18),
-        compact,
-        by_name,
-    )
-    upper_cap = normalized_weights_for_point(
-        (shoulder_x, 0, marks.shoulder_z + compact.arm_radius * 0.78),
-        compact,
-        by_name,
-    )
+    lower_armpit = normalized_weights_for_point((shoulder_x, 0, marks.shoulder_z - compact.arm_radius * 1.20), compact, by_name)
+    socket_band = normalized_weights_for_point((shoulder_x, 0, marks.shoulder_z - compact.arm_radius * 0.18), compact, by_name)
+    upper_cap = normalized_weights_for_point((shoulder_x, 0, marks.shoulder_z + compact.arm_radius * 0.78), compact, by_name)
     for weights in (lower_armpit, socket_band, upper_cap):
         assert_blend(weights, {"chest", "upper_arm.L"})
     assert lower_armpit["chest"] >= 0.70
@@ -169,36 +124,16 @@ def main() -> None:
     hip_candidates = candidate_bones_for_point(hip_point, compact)
     assert "hips" in hip_candidates
     assert "thigh.L" in hip_candidates
-    hip_weights = normalized_weights_for_point(
-        hip_point,
-        compact,
-        by_name,
-        max_influences=3,
-    )
+    hip_weights = normalized_weights_for_point(hip_point, compact, by_name, max_influences=3)
     assert_blend(hip_weights, {"hips", "thigh.L"})
 
-    boxer_waistband = normalized_weights_for_point(
-        (-compact.hip_width * 0.45, 0, marks.hips_z + compact.head_height * 0.01),
-        compact,
-        by_name,
-        part_name="Clothing_Boxers",
-    )
+    boxer_waistband = normalized_weights_for_point((-compact.hip_width * 0.45, 0, marks.hips_z + compact.head_height * 0.01), compact, by_name, part_name="Clothing_Boxers")
     assert boxer_waistband == {"hips": 1.0}
-    boxer_lower_outer = normalized_weights_for_point(
-        (-compact.hip_width * 0.50, 0, marks.hips_z - compact.head_height * 0.11),
-        compact,
-        by_name,
-        part_name="Clothing_Boxers",
-    )
+    boxer_lower_outer = normalized_weights_for_point((-compact.hip_width * 0.50, 0, marks.hips_z - compact.head_height * 0.11), compact, by_name, part_name="Clothing_Boxers")
     assert_blend(boxer_lower_outer, {"hips", "thigh.L"})
     assert boxer_lower_outer["hips"] >= 0.84
     assert boxer_lower_outer["thigh.L"] <= 0.16
-    boxer_center = normalized_weights_for_point(
-        (0, 0, marks.hips_z - compact.head_height * 0.11),
-        compact,
-        by_name,
-        part_name="Clothing_Boxers",
-    )
+    boxer_center = normalized_weights_for_point((0, 0, marks.hips_z - compact.head_height * 0.11), compact, by_name, part_name="Clothing_Boxers")
     assert boxer_center == {"hips": 1.0}
 
     invalid = list(compact_joints)
