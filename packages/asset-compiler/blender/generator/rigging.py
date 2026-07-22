@@ -24,6 +24,8 @@ RIGID_PART_BONES = {
     "Face_Mouth": "head",
     "Body_LeftEar": "head",
     "Body_RightEar": "head",
+    "Body_LeftFoot": "foot.L",
+    "Body_RightFoot": "foot.R",
 }
 
 DEFORMING_PARTS = {
