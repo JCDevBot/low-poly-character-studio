@@ -9,7 +9,7 @@ BLENDER_DIR = SCRIPT_DIR.parent
 ASSET_COMPILER_DIR = BLENDER_DIR.parent
 sys.path.append(str(BLENDER_DIR))
 
-from generator.body_topology import TOPOLOGY_SCHEMA, build_body_graph
+from generator.body_topology import TOPOLOGY_SCHEMA, build_body_graph, resolve_body_landmarks
 from generator.character_dna import LittleGuyDNA
 
 
@@ -81,10 +81,10 @@ def _fuse_body_components(obj, dna):
         return
 
     smallest_limb_radius = min(dna.arm_radius, dna.thigh_radius, dna.calf_radius)
-    base_voxel_size = max(0.0075, smallest_limb_radius * 0.42)
+    base_voxel_size = max(0.0065, smallest_limb_radius * 0.32)
     attempts = []
 
-    for factor in (1.0, 1.35, 1.75):
+    for factor in (1.0, 1.30, 1.65, 2.0):
         voxel_size = base_voxel_size * factor
         _activate(obj)
         obj.data.remesh_mode = "VOXEL"
@@ -125,11 +125,22 @@ def _fuse_body_components(obj, dna):
     )
 
 
-def cube(name, loc, scale, material, bevel_width=0.015):
+def mesh_object(name, vertices, faces, material):
+    mesh = bpy.data.meshes.new(f"{name}Mesh")
+    mesh.from_pydata(vertices, [], faces)
+    mesh.update()
+    obj = bpy.data.objects.new(name, mesh)
+    bpy.context.collection.objects.link(obj)
+    obj.data.materials.append(material)
+    lowpoly(obj)
+    return obj
+
+
+def cube(name, loc, dimensions, material, bevel_width=0.015):
     bpy.ops.mesh.primitive_cube_add(size=1, location=loc)
     obj = bpy.context.object
     obj.name = name
-    obj.scale = scale
+    obj.scale = dimensions
     obj.data.materials.append(material)
     lowpoly(obj)
     if bevel_width:
@@ -154,22 +165,47 @@ def sphere(name, loc, scale, material, segments=8, rings=4):
     return obj
 
 
+def _append_box(vertices, faces, center, dimensions):
+    cx, cy, cz = center
+    hx, hy, hz = (dimension / 2 for dimension in dimensions)
+    start = len(vertices)
+    vertices.extend(
+        (
+            (cx - hx, cy - hy, cz - hz),
+            (cx + hx, cy - hy, cz - hz),
+            (cx + hx, cy + hy, cz - hz),
+            (cx - hx, cy + hy, cz - hz),
+            (cx - hx, cy - hy, cz + hz),
+            (cx + hx, cy - hy, cz + hz),
+            (cx + hx, cy + hy, cz + hz),
+            (cx - hx, cy + hy, cz + hz),
+        )
+    )
+    faces.extend(
+        (
+            (start + 0, start + 1, start + 2, start + 3),
+            (start + 4, start + 7, start + 6, start + 5),
+            (start + 0, start + 4, start + 5, start + 1),
+            (start + 1, start + 5, start + 6, start + 2),
+            (start + 2, start + 6, start + 7, start + 3),
+            (start + 4, start + 0, start + 3, start + 7),
+        )
+    )
+
+
 def custom_head(name, dna: LittleGuyDNA, material):
-    """
-    Custom low-poly head from measured StyleDNA.
-    Front faces negative Y.
-    """
+    """Custom broad low-poly head. Front faces negative Y."""
     sx, sy, sz = dna.head_scale
     segments = dna.low_poly_segments
 
     rings = [
-        (-1.00, 0.42 * dna.chin_softness, 0.36),
-        (-0.78, 0.66, 0.58),
-        (-0.46, 0.92 * dna.cheek_fullness, 0.82),
+        (-1.00, 0.44 * dna.chin_softness, 0.38),
+        (-0.78, 0.69, 0.61),
+        (-0.46, 0.94 * dna.cheek_fullness, 0.84),
         (-0.12, 1.00 * dna.cheek_fullness, 0.98),
-        (0.24, 0.96 * dna.cranium_roundness, 1.00),
-        (0.62, 0.80 * dna.cranium_roundness, 0.88),
-        (0.92, 0.45, 0.50),
+        (0.24, 0.97 * dna.cranium_roundness, 1.00),
+        (0.62, 0.82 * dna.cranium_roundness, 0.90),
+        (0.92, 0.48, 0.54),
     ]
 
     verts = []
@@ -179,7 +215,7 @@ def custom_head(name, dna: LittleGuyDNA, material):
             x = math.cos(angle) * sx * x_mul
             y = math.sin(angle) * sy * y_mul
             if y < 0:
-                y *= 0.84
+                y *= 0.86
             if z_norm < -0.4 and y > 0:
                 x *= 0.94
             verts.append((x, y, dna.head_center_z + z_norm * sz))
@@ -204,15 +240,45 @@ def custom_head(name, dna: LittleGuyDNA, material):
     for i in range(segments):
         faces.append((bottom_index, (i + 1) % segments, i))
 
-    mesh = bpy.data.meshes.new(f"{name}Mesh")
-    mesh.from_pydata(verts, [], faces)
-    mesh.update()
+    return mesh_object(name, verts, faces, material)
 
-    obj = bpy.data.objects.new(name, mesh)
-    bpy.context.collection.objects.link(obj)
-    obj.data.materials.append(material)
-    lowpoly(obj)
-    return obj
+
+def hair_cap(name, dna: LittleGuyDNA, material):
+    """Open faceted cap with an irregular chunky front fringe."""
+    sx, sy, sz = dna.head_scale
+    segments = dna.low_poly_segments
+    ring_specs = (
+        (0.06, 1.035, 1.03),
+        (0.40, 1.025, 1.04),
+        (0.72, 0.87, 0.92),
+    )
+    vertices = []
+    for ring_index, (z_norm, x_mul, y_mul) in enumerate(ring_specs):
+        for i in range(segments):
+            angle = math.tau * i / segments
+            x = math.cos(angle) * sx * x_mul
+            y = math.sin(angle) * sy * y_mul
+            local_z = z_norm
+            if ring_index == 0 and y < 0:
+                local_z -= 0.19 if i % 3 else 0.27
+            elif ring_index == 0:
+                local_z -= 0.02
+            vertices.append((x, y, dna.head_center_z + local_z * sz))
+
+    top_index = len(vertices)
+    vertices.append((0, 0, dna.head_center_z + 1.055 * sz))
+    faces = []
+    for ring in range(len(ring_specs) - 1):
+        for i in range(segments):
+            a = ring * segments + i
+            b = ring * segments + (i + 1) % segments
+            c = (ring + 1) * segments + (i + 1) % segments
+            d = (ring + 1) * segments + i
+            faces.append((a, b, c, d))
+    top_ring_start = (len(ring_specs) - 1) * segments
+    for i in range(segments):
+        faces.append((top_ring_start + i, top_ring_start + (i + 1) % segments, top_index))
+    return mesh_object(name, vertices, faces, material)
 
 
 def connected_body(name, dna: LittleGuyDNA, material):
@@ -232,7 +298,7 @@ def connected_body(name, dna: LittleGuyDNA, material):
     _activate(obj)
     skin = obj.modifiers.new("connected_body_skin", "SKIN")
     if hasattr(skin, "branch_smoothing"):
-        skin.branch_smoothing = 0.20
+        skin.branch_smoothing = 0.24
     if hasattr(skin, "use_smooth_shade"):
         skin.use_smooth_shade = False
 
@@ -256,10 +322,10 @@ def connected_body(name, dna: LittleGuyDNA, material):
     _fuse_body_components(obj, dna)
 
     triangle_count = sum(max(0, len(polygon.vertices) - 2) for polygon in obj.data.polygons)
-    if triangle_count > 2800:
+    if triangle_count > 4200:
         decimate = obj.modifiers.new("low_poly_triangle_budget", "DECIMATE")
         decimate.decimate_type = "COLLAPSE"
-        decimate.ratio = max(0.25, 2500 / triangle_count)
+        decimate.ratio = max(0.35, 3600 / triangle_count)
         _apply_modifier(obj, decimate)
         triangle_count = sum(max(0, len(polygon.vertices) - 2) for polygon in obj.data.polygons)
 
@@ -277,21 +343,86 @@ def connected_body(name, dna: LittleGuyDNA, material):
 
 
 def create_eye(name, x, dna: LittleGuyDNA, material):
-    front_y = -dna.head_depth / 2 * 0.86
-    return cube(
+    front_y = -dna.head_depth * 0.42
+    return sphere(
         name,
-        (x, front_y - 0.004, dna.eye_center_z),
-        (dna.eye_width / 2, 0.009, dna.eye_height / 2),
+        (x, front_y - dna.head_depth * 0.012, dna.eye_center_z),
+        (dna.eye_width / 2, dna.head_depth * 0.018, dna.eye_height / 2),
         material,
-        bevel_width=0.006,
+        segments=8,
+        rings=4,
     )
+
+
+def create_nose(dna: LittleGuyDNA, material):
+    front_y = -dna.head_depth * 0.42
+    z = dna.eye_center_z - dna.head_height * 0.135
+    half_width = dna.head_height * 0.027
+    half_height = dna.head_height * 0.042
+    base_y = front_y - dna.head_depth * 0.008
+    tip_y = front_y - dna.head_depth * 0.075
+    vertices = (
+        (-half_width, base_y, z - half_height),
+        (half_width, base_y, z - half_height),
+        (half_width * 0.72, base_y, z + half_height),
+        (-half_width * 0.72, base_y, z + half_height),
+        (0, tip_y, z - half_height * 0.12),
+    )
+    faces = (
+        (0, 1, 2, 3),
+        (0, 4, 1),
+        (1, 4, 2),
+        (2, 4, 3),
+        (3, 4, 0),
+    )
+    return mesh_object("Face_Nose", vertices, faces, material)
+
+
+def create_mouth(dna: LittleGuyDNA, material):
+    front_y = -dna.head_depth * 0.425
+    return cube(
+        "Face_Mouth",
+        (0, front_y - 0.004, dna.eye_center_z - dna.head_height * 0.245),
+        (dna.head_width * 0.105, 0.010, dna.head_height * 0.012),
+        material,
+        bevel_width=0.003,
+    )
+
+
+def a_frame_shirt(dna: LittleGuyDNA, material):
+    marks = resolve_body_landmarks(dna)
+    panel_bottom = dna.waist_z - dna.head_height * 0.015
+    panel_top = marks.shoulder_z - dna.head_height * 0.16
+    strap_top = marks.shoulder_z + dna.head_height * 0.018
+    depth = dna.torso_depth * 1.13
+    vertices = []
+    faces = []
+
+    _append_box(
+        vertices,
+        faces,
+        (0, -0.008, (panel_bottom + panel_top) / 2),
+        (dna.torso_width * 1.12, depth, panel_top - panel_bottom),
+    )
+    strap_height = strap_top - panel_top + dna.head_height * 0.025
+    strap_z = (panel_top + strap_top) / 2
+    for sign in (-1, 1):
+        _append_box(
+            vertices,
+            faces,
+            (sign * dna.torso_width * 0.34, -0.008, strap_z),
+            (dna.torso_width * 0.18, depth * 0.96, strap_height),
+        )
+
+    return mesh_object("Clothing_AFrameShirt", vertices, faces, material)
 
 
 def build_human(dna: LittleGuyDNA):
     skin = mat("skin_warm_peach", (0.86, 0.55, 0.36, 1))
-    shirt = mat("a_frame_shirt_warm_white", (0.88, 0.84, 0.72, 1))
+    shirt = mat("a_frame_shirt_warm_white", (0.94, 0.91, 0.82, 1))
     boxers = mat("boxers_olive", (0.28, 0.33, 0.17, 1))
-    eyes = mat("simple_dark_eyes", (0.015, 0.012, 0.01, 1))
+    dark = mat("simple_dark_features", (0.015, 0.012, 0.01, 1))
+    hair = mat("hair_faceted_brown", (0.20, 0.095, 0.045, 1))
 
     root = bpy.data.objects.new("BaseHumanRoot", None)
     bpy.context.collection.objects.link(root)
@@ -299,15 +430,23 @@ def build_human(dna: LittleGuyDNA):
 
     parts.append(connected_body("Body_Core", dna, skin))
     parts.append(custom_head("Body_Head", dna, skin))
-    parts.append(create_eye("Face_LeftEye", -dna.eye_spacing / 2, dna, eyes))
-    parts.append(create_eye("Face_RightEye", dna.eye_spacing / 2, dna, eyes))
+    parts.append(hair_cap("Hair_Cap", dna, hair))
+    parts.append(create_eye("Face_LeftEye", -dna.eye_spacing / 2, dna, dark))
+    parts.append(create_eye("Face_RightEye", dna.eye_spacing / 2, dna, dark))
+    parts.append(create_nose(dna, skin))
+    parts.append(create_mouth(dna, dark))
 
-    ear_x = dna.head_width / 2 * 0.98
+    ear_x = dna.head_width * 0.43
+    ear_scale = (
+        dna.head_height * 0.070,
+        dna.head_depth * 0.055,
+        dna.ear_height * 0.52,
+    )
     parts.append(
         sphere(
             "Body_LeftEar",
             (-ear_x, 0, dna.ear_center_z),
-            (0.035, 0.024, dna.ear_height / 2),
+            ear_scale,
             skin,
             8,
             4,
@@ -317,29 +456,22 @@ def build_human(dna: LittleGuyDNA):
         sphere(
             "Body_RightEar",
             (ear_x, 0, dna.ear_center_z),
-            (0.035, 0.024, dna.ear_height / 2),
+            ear_scale,
             skin,
             8,
             4,
         )
     )
 
-    parts.append(
-        cube(
-            "Clothing_AFrameShirt",
-            (0, -0.006, dna.torso_center_z + dna.torso_height * 0.05),
-            (dna.torso_width * 0.54, dna.torso_depth * 0.54, dna.torso_height * 0.43),
-            shirt,
-            bevel_width=0.02,
-        )
-    )
+    parts.append(a_frame_shirt(dna, shirt))
+    boxer_height = dna.head_height * 0.17
     parts.append(
         cube(
             "Clothing_Boxers",
-            (0, 0, dna.waist_z - dna.head_height * 0.045),
-            (dna.hip_width * 0.54, dna.torso_depth * 0.54, dna.head_height * 0.07),
+            (0, 0, dna.waist_z - boxer_height * 0.24),
+            (dna.hip_width * 1.16, dna.torso_depth * 1.15, boxer_height),
             boxers,
-            bevel_width=0.02,
+            bevel_width=dna.head_height * 0.025,
         )
     )
 
