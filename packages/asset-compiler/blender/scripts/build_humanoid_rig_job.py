@@ -13,6 +13,10 @@ from generator.rigging import apply_humanoid_rig, write_rig_metadata
 from generator.style_dna import load_style_dna
 
 
+DEFORMATION_PRESERVATION_SCHEMA = "humanoid-deformation-preservation/v1"
+DEFORMATION_PRESERVATION_MODIFIER = "humanoid-basic-v1-volume-preservation"
+
+
 def parse_args():
     parser = argparse.ArgumentParser(description="Rig and skin one humanoid/chibi-v1 model artifact")
     parser.add_argument("--input-blend", type=Path, required=True)
@@ -21,6 +25,62 @@ def parse_args():
     parser.add_argument("--job-id", default="local")
     args = sys.argv[sys.argv.index("--") + 1 :] if "--" in sys.argv else []
     return parser.parse_args(args)
+
+
+def add_deformation_preservation(armature):
+    """Add a restrained post-armature correction for shoulder and hip volume loss.
+
+    The connected Skin/voxel body is intentionally faceted, but its irregular
+    joint triangles can fold sharply during basic abduction and flexion. A
+    low-strength Corrective Smooth modifier after the armature uses the neutral
+    generated mesh as the rest reference and reduces those local collapses. It
+    remains non-destructive and is evaluated by Blender for review and GLB export.
+    """
+    body = bpy.data.objects.get("Body_Core")
+    if body is None or body.type != "MESH":
+        raise ValueError("Rigged humanoid is missing mesh object Body_Core")
+
+    armature_modifiers = [
+        modifier
+        for modifier in body.modifiers
+        if modifier.type == "ARMATURE" and modifier.object == armature
+    ]
+    if len(armature_modifiers) != 1:
+        raise ValueError(
+            "Body_Core must have exactly one armature modifier before deformation preservation"
+        )
+
+    existing = body.modifiers.get(DEFORMATION_PRESERVATION_MODIFIER)
+    if existing is not None:
+        body.modifiers.remove(existing)
+
+    modifier = body.modifiers.new(DEFORMATION_PRESERVATION_MODIFIER, "CORRECTIVE_SMOOTH")
+    modifier.factor = 0.28
+    modifier.iterations = 3
+    modifier.smooth_type = "LENGTH_WEIGHTED"
+    modifier.rest_source = "ORCO"
+    modifier.scale = 1.0
+    modifier.use_only_smooth = False
+    modifier.use_pin_boundary = False
+
+    modifier_names = [item.name for item in body.modifiers]
+    armature_index = modifier_names.index(armature_modifiers[0].name)
+    corrective_index = modifier_names.index(modifier.name)
+    if corrective_index <= armature_index:
+        raise ValueError("Corrective Smooth must follow the armature modifier")
+
+    body["deformationPreservationSchema"] = DEFORMATION_PRESERVATION_SCHEMA
+    body["deformationPreservationModifier"] = DEFORMATION_PRESERVATION_MODIFIER
+    return {
+        "schema": DEFORMATION_PRESERVATION_SCHEMA,
+        "object": body.name,
+        "modifier": modifier.name,
+        "afterArmature": True,
+        "factor": modifier.factor,
+        "iterations": modifier.iterations,
+        "smoothType": modifier.smooth_type,
+        "restSource": modifier.rest_source,
+    }
 
 
 def main():
@@ -35,6 +95,7 @@ def main():
         raise ValueError("Model-stage blend is missing BaseHumanRoot")
 
     armature, metadata = apply_humanoid_rig(root, dna)
+    metadata["deformationPreservation"] = add_deformation_preservation(armature)
     metadata["jobId"] = args.job_id
     metadata["modelTypeId"] = style_document["modelTypeId"]
     metadata["styleDnaSchema"] = style_document["schema"]
@@ -65,7 +126,7 @@ def main():
     write_rig_metadata(metadata_path, metadata)
 
     print(f"Saved rigged blend: {blend_path}")
-    print(f"Saved rigged GLB: {glb_path}")
+    print(f"Saved rigged GLB:   {glb_path}")
     print(f"Saved rig metadata: {metadata_path}")
 
 
