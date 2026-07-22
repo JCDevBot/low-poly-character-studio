@@ -4,7 +4,15 @@ set -Eeuo pipefail
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 COMPACT_JOB="${1:-${COMPACT_JOB:-}}"
 TALL_JOB="${2:-${TALL_JOB:-}}"
-BLENDER="${BLENDER_COMMAND:-blender}"
+PINNED_BLENDER="$ROOT_DIR/.tools/blender/current/blender"
+if [[ -n "${BLENDER_COMMAND:-}" ]]; then
+  BLENDER="$BLENDER_COMMAND"
+elif [[ -x "$PINNED_BLENDER" ]]; then
+  BLENDER="$PINNED_BLENDER"
+else
+  BLENDER="blender"
+fi
+BLENDER_ARGS=(--background --factory-startup --python-exit-code 1)
 MODEL_SCRIPT="$ROOT_DIR/packages/asset-compiler/blender/scripts/build_humanoid_job.py"
 RIG_SCRIPT="$ROOT_DIR/packages/asset-compiler/blender/scripts/build_humanoid_rig_job.py"
 RENDER_SCRIPT="$ROOT_DIR/packages/asset-compiler/blender/scripts/render_rig_review.py"
@@ -110,11 +118,18 @@ EOF
 trap 'on_error "$LINENO" "$BASH_COMMAND"' ERR
 
 CURRENT_STEP="checking Blender executable"
-if ! command -v "$BLENDER" >/dev/null 2>&1; then
+if [[ "$BLENDER" == */* ]]; then
+  if [[ ! -x "$BLENDER" ]]; then
+    echo "Blender executable not found or not executable: $BLENDER" >&2
+    false
+  fi
+elif ! command -v "$BLENDER" >/dev/null 2>&1; then
   echo "Blender executable not found: $BLENDER" >&2
-  echo "Set BLENDER_COMMAND to the Blender executable path." >&2
+  echo "Run pnpm blender:setup or set BLENDER_COMMAND to the executable path." >&2
   false
 fi
+
+"$BLENDER" --version
 
 if [[ -n "$COMPACT_JOB" || -n "$TALL_JOB" ]]; then
   if [[ -z "$COMPACT_JOB" || -z "$TALL_JOB" ]]; then
@@ -144,7 +159,7 @@ render_rig() {
 
   mkdir -p "$label_dir"
   CURRENT_STEP="rendering $label review images"
-  "$BLENDER" -b \
+  "$BLENDER" "${BLENDER_ARGS[@]}" \
     --python "$RENDER_SCRIPT" \
     -- \
     --input-blend "$input_blend" \
@@ -166,7 +181,7 @@ build_and_render() {
   mkdir -p "$model_dir" "$rig_dir" "$label_dir"
   CURRENT_STEP="building fresh $label model"
   echo "Building fresh $label model from $(basename "$fixture")..."
-  "$BLENDER" -b \
+  "$BLENDER" "${BLENDER_ARGS[@]}" \
     --python "$MODEL_SCRIPT" \
     -- \
     --style-dna "$fixture" \
@@ -176,7 +191,7 @@ build_and_render() {
 
   CURRENT_STEP="rigging fresh $label model"
   echo "Rigging fresh $label model..."
-  "$BLENDER" -b \
+  "$BLENDER" "${BLENDER_ARGS[@]}" \
     --python "$RIG_SCRIPT" \
     -- \
     --input-blend "$model_dir/humanoid.blend" \
