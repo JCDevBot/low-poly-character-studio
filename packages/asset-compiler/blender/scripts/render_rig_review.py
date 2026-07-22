@@ -154,26 +154,45 @@ def render_view(scene, camera, output_dir, name, direction):
 
 
 def render_wireframe(scene, camera, output_dir):
+    """Render evaluated mesh edges as real geometry so CI output is unambiguous."""
     shading = scene.display.shading
-    mesh_objects = [obj for obj in bpy.context.scene.objects if obj.type == "MESH"]
-    previous_objects = [(obj, obj.show_wire, obj.show_all_edges) for obj in mesh_objects]
+    originals = [
+        obj
+        for obj in bpy.context.scene.objects
+        if obj.type == "MESH" and not obj.hide_render
+    ]
+    previous_hidden = [(obj, obj.hide_render) for obj in originals]
     previous_shading = {
         "show_shadows": shading.show_shadows,
         "show_cavity": shading.show_cavity,
         "color_type": shading.color_type,
-        "show_wireframes": getattr(shading, "show_wireframes", None),
     }
+    depsgraph = bpy.context.evaluated_depsgraph_get()
+    minimum, maximum = evaluated_bounds()
+    thickness = max(0.0008, (maximum.z - minimum.z) * 0.0011)
+    wire_material = bpy.data.materials.new("RigReviewWireMaterial")
+    wire_material.diffuse_color = (0.78, 0.80, 0.84, 1.0)
+    wire_objects = []
+
     try:
-        for obj in mesh_objects:
-            obj.show_wire = True
-            obj.show_all_edges = True
-        if hasattr(shading, "show_wireframes"):
-            shading.show_wireframes = True
+        for original in originals:
+            evaluated = original.evaluated_get(depsgraph)
+            mesh_data = bpy.data.meshes.new_from_object(evaluated, depsgraph=depsgraph)
+            wire_object = bpy.data.objects.new(f"RigReviewWire_{original.name}", mesh_data)
+            scene.collection.objects.link(wire_object)
+            wire_object.matrix_world = evaluated.matrix_world.copy()
+            mesh_data.materials.clear()
+            mesh_data.materials.append(wire_material)
+            modifier = wire_object.modifiers.new("RigReviewWireframe", "WIREFRAME")
+            modifier.thickness = thickness
+            modifier.use_replace = True
+            modifier.use_even_offset = True
+            wire_objects.append(wire_object)
+            original.hide_render = True
+
         shading.show_shadows = False
         shading.show_cavity = False
-        shading.color_type = "SINGLE"
-        if hasattr(shading, "single_color"):
-            shading.single_color = (0.72, 0.74, 0.78)
+        shading.color_type = "MATERIAL"
         return render_view(
             scene,
             camera,
@@ -182,14 +201,18 @@ def render_wireframe(scene, camera, output_dir):
             (0.0, -1.0, 0.0),
         )
     finally:
-        for obj, show_wire, show_all_edges in previous_objects:
-            obj.show_wire = show_wire
-            obj.show_all_edges = show_all_edges
+        for original, hide_render in previous_hidden:
+            original.hide_render = hide_render
+        for wire_object in wire_objects:
+            mesh_data = wire_object.data
+            bpy.data.objects.remove(wire_object, do_unlink=True)
+            if mesh_data.users == 0:
+                bpy.data.meshes.remove(mesh_data)
+        if wire_material.users == 0:
+            bpy.data.materials.remove(wire_material)
         shading.show_shadows = previous_shading["show_shadows"]
         shading.show_cavity = previous_shading["show_cavity"]
         shading.color_type = previous_shading["color_type"]
-        if hasattr(shading, "show_wireframes") and previous_shading["show_wireframes"] is not None:
-            shading.show_wireframes = previous_shading["show_wireframes"]
 
 
 def main():
@@ -227,6 +250,7 @@ def main():
         "rigId": armature.get("rigId", armature.name),
         "reviewPoseRadians": {name: list(rotation) for name, rotation in REVIEW_POSE.items()},
         "isolatedPosesRadians": isolated_manifest,
+        "wireframeMode": "evaluated-geometry",
         "images": images,
     }
     (args.output_dir / "review-manifest.json").write_text(
