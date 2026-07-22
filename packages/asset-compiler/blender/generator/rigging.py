@@ -17,8 +17,11 @@ MAX_BODY_TRIANGLES = 2800
 
 RIGID_PART_BONES = {
     "Body_Head": "head",
+    "Hair_Cap": "head",
     "Face_LeftEye": "head",
     "Face_RightEye": "head",
+    "Face_Nose": "head",
+    "Face_Mouth": "head",
     "Body_LeftEar": "head",
     "Body_RightEar": "head",
 }
@@ -109,7 +112,6 @@ def _bind_deforming(
 ) -> None:
     _clear_groups(mesh)
     groups: dict[str, bpy.types.VertexGroup] = {}
-    max_influences = 3 if mesh.name != "Body_Core" else 2
     for vertex in mesh.data.vertices:
         world_point = tuple(mesh.matrix_world @ vertex.co)
         weights = normalized_weights_for_point(
@@ -117,7 +119,7 @@ def _bind_deforming(
             dna,
             joints,
             part_name=mesh.name,
-            max_influences=max_influences,
+            max_influences=3,
         )
         for bone_name, weight in weights.items():
             group = groups.get(bone_name)
