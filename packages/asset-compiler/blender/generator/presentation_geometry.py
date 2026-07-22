@@ -55,7 +55,7 @@ def _append_extruded_profile(vertices, faces, profile, thickness: float) -> None
         )
 
 
-def _append_tapered_side_panel(
+def _append_rounded_side_panel(
     vertices,
     faces,
     *,
@@ -70,32 +70,46 @@ def _append_tapered_side_panel(
     back_underarm_y: float,
     thickness: float,
 ) -> None:
-    """Join front and back panels with a tapered, torso-following lower side seam."""
+    """Join the vest panels with a two-facet rounded lower side contour."""
     start = len(vertices)
-    inner_bottom = sign * max(0.0, bottom_x - thickness)
-    inner_underarm = sign * max(0.0, underarm_x - thickness)
-    vertices.extend(
-        (
-            (sign * bottom_x, front_bottom_y, bottom_z),
-            (sign * underarm_x, front_underarm_y, underarm_z),
-            (sign * underarm_x, back_underarm_y, underarm_z),
-            (sign * bottom_x, back_bottom_y, bottom_z),
-            (inner_bottom, front_bottom_y + thickness, bottom_z),
-            (inner_underarm, front_underarm_y + thickness, underarm_z),
-            (inner_underarm, back_underarm_y - thickness, underarm_z),
-            (inner_bottom, back_bottom_y - thickness, bottom_z),
-        )
+    bottom_mid_x = sign * bottom_x * 1.035
+    underarm_mid_x = sign * underarm_x * 1.035
+    bottom_mid_y = (front_bottom_y + back_bottom_y) * 0.5
+    underarm_mid_y = (front_underarm_y + back_underarm_y) * 0.5
+    inner_offset = -sign * thickness
+
+    outer = (
+        (sign * bottom_x, front_bottom_y, bottom_z),
+        (sign * underarm_x, front_underarm_y, underarm_z),
+        (underarm_mid_x, underarm_mid_y, underarm_z),
+        (sign * underarm_x, back_underarm_y, underarm_z),
+        (sign * bottom_x, back_bottom_y, bottom_z),
+        (bottom_mid_x, bottom_mid_y, bottom_z),
     )
-    faces.extend(
+    inner = tuple(
         (
-            (start + 0, start + 1, start + 2, start + 3),
-            (start + 7, start + 6, start + 5, start + 4),
-            (start + 0, start + 4, start + 5, start + 1),
-            (start + 1, start + 5, start + 6, start + 2),
-            (start + 2, start + 6, start + 7, start + 3),
-            (start + 3, start + 7, start + 4, start + 0),
+            x + inner_offset,
+            y + (thickness if y < 0 else -thickness),
+            z,
         )
+        for x, y, z in outer
     )
+    vertices.extend(outer)
+    vertices.extend(inner)
+
+    count = len(outer)
+    faces.append(tuple(start + index for index in range(count)))
+    faces.append(tuple(start + count + index for index in range(count - 1, -1, -1)))
+    for index in range(count):
+        next_index = (index + 1) % count
+        faces.append(
+            (
+                start + index,
+                start + next_index,
+                start + count + next_index,
+                start + count + index,
+            )
+        )
 
 
 def _material_from(obj: bpy.types.Object):
@@ -170,11 +184,11 @@ def _create_a_frame_shirt(dna, material) -> bpy.types.Object:
     _append_extruded_profile(vertices, faces, front_profile, thickness)
     _append_extruded_profile(vertices, faces, back_profile, thickness)
 
-    # Join only the lower torso. The tapered seams inherit the front/back depth
-    # profiles, avoiding the rectangular slab visible in prior side renders while
-    # preserving open armholes above the underarm landmark.
+    # Join only the lower torso. A center ridge splits each side into front and
+    # back facets so the side silhouette wraps around the body instead of reading
+    # as one broad vertical slab. Armholes remain open above the underarm line.
     for sign in (-1.0, 1.0):
-        _append_tapered_side_panel(
+        _append_rounded_side_panel(
             vertices,
             faces,
             sign=sign,
@@ -190,7 +204,7 @@ def _create_a_frame_shirt(dna, material) -> bpy.types.Object:
         )
 
     obj = _mesh_object("Clothing_AFrameShirt", vertices, faces, material)
-    obj["depthProfile"] = "fitted-tapered-vest/v4"
+    obj["depthProfile"] = "fitted-rounded-vest/v5"
     return obj
 
 
