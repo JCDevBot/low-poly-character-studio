@@ -129,6 +129,29 @@ def main() -> None:
     )
     assert_blend(shoulder_weights, {"chest", "upper_arm.L"})
 
+    shoulder_x = -(marks.shoulder_x + compact.arm_radius * 0.24)
+    lower_armpit = normalized_weights_for_point(
+        (shoulder_x, 0, marks.shoulder_z - compact.arm_radius * 1.20),
+        compact,
+        by_name,
+    )
+    socket_band = normalized_weights_for_point(
+        (shoulder_x, 0, marks.shoulder_z - compact.arm_radius * 0.18),
+        compact,
+        by_name,
+    )
+    upper_cap = normalized_weights_for_point(
+        (shoulder_x, 0, marks.shoulder_z + compact.arm_radius * 0.78),
+        compact,
+        by_name,
+    )
+    for weights in (lower_armpit, socket_band, upper_cap):
+        assert_blend(weights, {"chest", "upper_arm.L"})
+    assert lower_armpit["chest"] >= 0.72
+    assert 0.30 <= socket_band["upper_arm.L"] <= 0.70
+    assert upper_cap["upper_arm.L"] >= 0.68
+    assert lower_armpit["upper_arm.L"] < socket_band["upper_arm.L"] < upper_cap["upper_arm.L"]
+
     hip_point = (-marks.hip_x, 0, marks.hips_z - compact.thigh_radius * 0.20)
     hip_candidates = candidate_bones_for_point(hip_point, compact)
     assert "hips" in hip_candidates
