@@ -106,15 +106,15 @@ def build_body_graph(dna) -> tuple[tuple[BodyNode, ...], tuple[tuple[int, int], 
     add(
         "upper-chest",
         (0, 0, marks.shoulder_z - dna.head_height * 0.018),
-        (dna.torso_width * 0.57, dna.torso_depth * 0.52),
+        (dna.torso_width * 0.55, dna.torso_depth * 0.51),
         "chest",
     )
 
-    neck_radius = max(dna.arm_radius * 0.96, dna.head_width * 0.070)
+    neck_radius = max(dna.arm_radius * 0.92, dna.head_width * 0.066)
     add(
         "neck-base",
         (0, 0, dna.neck_z - dna.head_height * 0.022),
-        (neck_radius * 1.28, neck_radius * 1.15),
+        (neck_radius * 1.18, neck_radius * 1.08),
         "upper-chest",
     )
     add(
@@ -130,20 +130,20 @@ def build_body_graph(dna) -> tuple[tuple[BodyNode, ...], tuple[tuple[int, int], 
         x = lambda value: sign * value
         add(
             f"clavicle.{suffix}",
-            (x(dna.torso_width * 0.29), 0, marks.shoulder_z + dna.arm_radius * 0.10),
-            (dna.arm_radius * 1.80, dna.arm_radius * 1.55),
+            (x(dna.torso_width * 0.30), 0, marks.shoulder_z + dna.arm_radius * 0.06),
+            (dna.arm_radius * 1.38, dna.arm_radius * 1.25),
             "upper-chest",
         )
         add(
             f"shoulder.{suffix}",
             (x(marks.shoulder_x), 0, marks.shoulder_z),
-            (dna.arm_radius * 1.48, dna.arm_radius * 1.38),
+            (dna.arm_radius * 1.22, dna.arm_radius * 1.16),
             f"clavicle.{suffix}",
         )
         add(
             f"upper-arm.{suffix}",
             (x(marks.shoulder_x + dna.arm_radius * 0.10), 0, marks.shoulder_z - dna.arm_length * 0.22),
-            (dna.arm_radius * 1.12, dna.arm_radius * 1.06),
+            (dna.arm_radius * 1.10, dna.arm_radius * 1.04),
             f"shoulder.{suffix}",
         )
         add(
@@ -166,11 +166,7 @@ def build_body_graph(dna) -> tuple[tuple[BodyNode, ...], tuple[tuple[int, int], 
         )
         add(
             f"forearm.{suffix}",
-            (
-                x((marks.elbow_x + marks.wrist_x) * 0.5),
-                0,
-                (marks.elbow_z + marks.wrist_z) * 0.5,
-            ),
+            (x((marks.elbow_x + marks.wrist_x) * 0.5), 0, (marks.elbow_z + marks.wrist_z) * 0.5),
             (dna.arm_radius * 0.91, dna.arm_radius * 0.86),
             f"elbow-below.{suffix}",
         )
@@ -217,40 +213,37 @@ def build_body_graph(dna) -> tuple[tuple[BodyNode, ...], tuple[tuple[int, int], 
         add(
             f"thigh.{suffix}",
             (x, 0, (marks.hips_z + marks.knee_z) * 0.5),
-            (dna.thigh_radius * 1.10, dna.thigh_radius * 1.04),
+            (dna.thigh_radius * 1.14, dna.thigh_radius * 1.08),
             f"thigh-upper.{suffix}",
         )
         add(
             f"knee-above.{suffix}",
             (x, 0, marks.knee_z + leg_band),
-            (dna.thigh_radius * 1.00, dna.thigh_radius * 0.94),
+            (dna.thigh_radius * 1.04, dna.thigh_radius * 0.98),
             f"thigh.{suffix}",
         )
         add(
             f"knee.{suffix}",
             (x, 0, marks.knee_z),
-            (
-                max(dna.calf_radius * 1.08, dna.thigh_radius * 0.86),
-                max(dna.calf_radius, dna.thigh_radius * 0.82),
-            ),
+            (max(dna.calf_radius * 1.10, dna.thigh_radius * 0.88), max(dna.calf_radius * 1.02, dna.thigh_radius * 0.84)),
             f"knee-above.{suffix}",
         )
         add(
             f"knee-below.{suffix}",
             (x, 0, marks.knee_z - leg_band),
-            (dna.calf_radius * 1.08, dna.calf_radius * 1.02),
+            (dna.calf_radius * 1.12, dna.calf_radius * 1.06),
             f"knee.{suffix}",
         )
         add(
             f"calf.{suffix}",
             (x, 0, (marks.knee_z + marks.ankle_z) * 0.5),
-            (dna.calf_radius * 1.04, dna.calf_radius * 0.98),
+            (dna.calf_radius * 1.08, dna.calf_radius * 1.02),
             f"knee-below.{suffix}",
         )
         add(
             f"ankle-above.{suffix}",
             (x, 0, marks.ankle_z + leg_band * 0.72),
-            (dna.calf_radius * 0.82, dna.calf_radius * 0.77),
+            (dna.calf_radius * 0.84, dna.calf_radius * 0.79),
             f"calf.{suffix}",
         )
         add(
@@ -261,21 +254,27 @@ def build_body_graph(dna) -> tuple[tuple[BodyNode, ...], tuple[tuple[int, int], 
         )
         add(
             f"heel.{suffix}",
-            (x, 0, dna.foot_height * 0.58),
-            (dna.foot_width * 0.58, dna.foot_height * 0.82),
+            (x, -dna.foot_length * 0.04, dna.foot_height * 0.76),
+            (dna.foot_width * 0.46, dna.foot_height * 0.54),
             f"ankle.{suffix}",
         )
         add(
             f"ball.{suffix}",
-            (x, -dna.foot_length * 0.43, dna.foot_height * 0.55),
-            (dna.foot_width * 0.76, dna.foot_height * 0.80),
+            (x, -dna.foot_length * 0.40, dna.foot_height * 0.72),
+            (dna.foot_width * 0.54, dna.foot_height * 0.50),
             f"heel.{suffix}",
         )
         add(
             f"toe.{suffix}",
-            (x, marks.toe_y, dna.foot_height * 0.52),
-            (dna.foot_width * 0.74, dna.foot_height * 0.64),
+            (x, marks.toe_y, dna.foot_height * 0.70),
+            (dna.foot_width * 0.48, dna.foot_height * 0.42),
             f"ball.{suffix}",
+        )
+        add(
+            f"toe-tip.{suffix}",
+            (x, marks.toe_y - dna.foot_length * 0.08, dna.foot_height * 0.70),
+            (dna.foot_width * 0.18, dna.foot_height * 0.18),
+            f"toe.{suffix}",
         )
 
     validate_body_graph(nodes, edges)
