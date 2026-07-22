@@ -193,6 +193,34 @@ def _append_box(vertices, faces, center, dimensions):
     )
 
 
+def _append_tapered_prism(vertices, faces, bottom_z, top_z, bottom_width, top_width, depth, center_y=-0.008):
+    front_y = center_y - depth / 2
+    back_y = center_y + depth / 2
+    start = len(vertices)
+    vertices.extend(
+        (
+            (-bottom_width / 2, front_y, bottom_z),
+            (bottom_width / 2, front_y, bottom_z),
+            (bottom_width / 2, back_y, bottom_z),
+            (-bottom_width / 2, back_y, bottom_z),
+            (-top_width / 2, front_y, top_z),
+            (top_width / 2, front_y, top_z),
+            (top_width / 2, back_y, top_z),
+            (-top_width / 2, back_y, top_z),
+        )
+    )
+    faces.extend(
+        (
+            (start + 0, start + 1, start + 2, start + 3),
+            (start + 4, start + 7, start + 6, start + 5),
+            (start + 0, start + 4, start + 5, start + 1),
+            (start + 1, start + 5, start + 6, start + 2),
+            (start + 2, start + 6, start + 7, start + 3),
+            (start + 4, start + 0, start + 3, start + 7),
+        )
+    )
+
+
 def custom_head(name, dna: LittleGuyDNA, material):
     """Custom broad low-poly head. Front faces negative Y."""
     sx, sy, sz = dna.head_scale
@@ -389,32 +417,69 @@ def create_mouth(dna: LittleGuyDNA, material):
     )
 
 
+def foot_shell(name, x, dna: LittleGuyDNA, material):
+    return sphere(
+        name,
+        (x, -dna.foot_length * 0.42, dna.foot_height * 0.64),
+        (dna.foot_width * 0.54, dna.foot_length * 0.58, dna.foot_height * 0.62),
+        material,
+        segments=8,
+        rings=4,
+    )
+
+
 def a_frame_shirt(dna: LittleGuyDNA, material):
     marks = resolve_body_landmarks(dna)
-    panel_bottom = dna.waist_z - dna.head_height * 0.015
-    panel_top = marks.shoulder_z - dna.head_height * 0.16
-    strap_top = marks.shoulder_z + dna.head_height * 0.018
-    depth = dna.torso_depth * 1.13
+    panel_bottom = dna.waist_z + dna.head_height * 0.035
+    panel_top = marks.shoulder_z - dna.head_height * 0.19
+    strap_top = marks.shoulder_z + dna.head_height * 0.012
+    depth = dna.torso_depth * 1.08
     vertices = []
     faces = []
 
-    _append_box(
+    _append_tapered_prism(
         vertices,
         faces,
-        (0, -0.008, (panel_bottom + panel_top) / 2),
-        (dna.torso_width * 1.12, depth, panel_top - panel_bottom),
+        panel_bottom,
+        panel_top,
+        dna.torso_width * 1.06,
+        dna.torso_width * 0.82,
+        depth,
     )
-    strap_height = strap_top - panel_top + dna.head_height * 0.025
+    strap_height = strap_top - panel_top
     strap_z = (panel_top + strap_top) / 2
     for sign in (-1, 1):
         _append_box(
             vertices,
             faces,
-            (sign * dna.torso_width * 0.34, -0.008, strap_z),
-            (dna.torso_width * 0.18, depth * 0.96, strap_height),
+            (sign * dna.torso_width * 0.29, -0.008, strap_z),
+            (dna.torso_width * 0.15, depth * 0.88, strap_height),
         )
 
     return mesh_object("Clothing_AFrameShirt", vertices, faces, material)
+
+
+def boxer_briefs(dna: LittleGuyDNA, material):
+    vertices = []
+    faces = []
+    waist_height = dna.head_height * 0.060
+    leg_height = dna.head_height * 0.115
+    waist_center_z = dna.waist_z - waist_height * 0.18
+    _append_box(
+        vertices,
+        faces,
+        (0, 0, waist_center_z),
+        (dna.hip_width * 1.13, dna.torso_depth * 1.11, waist_height),
+    )
+    leg_center_z = dna.waist_z - waist_height * 0.42 - leg_height * 0.50
+    for sign in (-1, 1):
+        _append_box(
+            vertices,
+            faces,
+            (sign * dna.hip_width * 0.235, 0, leg_center_z),
+            (dna.hip_width * 0.49, dna.torso_depth * 1.08, leg_height),
+        )
+    return mesh_object("Clothing_Boxers", vertices, faces, material)
 
 
 def build_human(dna: LittleGuyDNA):
@@ -463,17 +528,11 @@ def build_human(dna: LittleGuyDNA):
         )
     )
 
+    marks = resolve_body_landmarks(dna)
+    parts.append(foot_shell("Body_LeftFoot", -marks.hip_x, dna, skin))
+    parts.append(foot_shell("Body_RightFoot", marks.hip_x, dna, skin))
     parts.append(a_frame_shirt(dna, shirt))
-    boxer_height = dna.head_height * 0.17
-    parts.append(
-        cube(
-            "Clothing_Boxers",
-            (0, 0, dna.waist_z - boxer_height * 0.24),
-            (dna.hip_width * 1.16, dna.torso_depth * 1.15, boxer_height),
-            boxers,
-            bevel_width=dna.head_height * 0.025,
-        )
-    )
+    parts.append(boxer_briefs(dna, boxers))
 
     for part in parts:
         part.parent = root
