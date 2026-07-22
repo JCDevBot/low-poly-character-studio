@@ -96,12 +96,18 @@ def build_body_graph(dna) -> tuple[tuple[BodyNode, ...], tuple[tuple[int, int], 
         x = lambda value: sign * value
         add(f"clavicle.{suffix}", (x(dna.torso_width * 0.30), 0, marks.shoulder_z + dna.arm_radius * 0.06), (dna.arm_radius * 1.38, dna.arm_radius * 1.25), "upper-chest")
         add(
-            f"armpit-support.{suffix}",
-            (x(marks.shoulder_x - dna.arm_radius * 0.48), 0, marks.shoulder_z - dna.arm_radius * 0.72),
-            (dna.arm_radius * 1.42, dna.arm_radius * 1.30),
+            f"lower-armpit-support.{suffix}",
+            (x(marks.shoulder_x - dna.arm_radius * 0.62), 0, marks.shoulder_z - dna.arm_radius * 0.78),
+            (dna.arm_radius * 1.48, dna.arm_radius * 1.34),
             f"clavicle.{suffix}",
         )
-        add(f"shoulder.{suffix}", (x(marks.shoulder_x), 0, marks.shoulder_z), (dna.arm_radius * 1.22, dna.arm_radius * 1.16), f"armpit-support.{suffix}")
+        add(
+            f"upper-socket-support.{suffix}",
+            (x(marks.shoulder_x - dna.arm_radius * 0.18), 0, marks.shoulder_z - dna.arm_radius * 0.20),
+            (dna.arm_radius * 1.34, dna.arm_radius * 1.24),
+            f"lower-armpit-support.{suffix}",
+        )
+        add(f"shoulder.{suffix}", (x(marks.shoulder_x), 0, marks.shoulder_z), (dna.arm_radius * 1.22, dna.arm_radius * 1.16), f"upper-socket-support.{suffix}")
         add(f"upper-arm.{suffix}", (x(marks.shoulder_x + dna.arm_radius * 0.10), 0, marks.shoulder_z - dna.arm_length * 0.22), (dna.arm_radius * 1.10, dna.arm_radius * 1.04), f"shoulder.{suffix}")
         add(f"elbow-above.{suffix}", (x(marks.elbow_x), 0, marks.elbow_z + arm_band), (dna.arm_radius * 1.02, dna.arm_radius * 0.96), f"upper-arm.{suffix}")
         add(f"elbow.{suffix}", (x(marks.elbow_x), 0, marks.elbow_z), (dna.arm_radius * 0.92, dna.arm_radius * 0.88), f"elbow-above.{suffix}")
@@ -216,16 +222,9 @@ def normalized_weights_for_point(point, dna, joints: Mapping[str, object], part_
     x, _, z = point
     marks = resolve_body_landmarks(dna)
 
-    # Boxer briefs are a pelvis garment, not independent shorts legs. Keep the
-    # waistband and central panel rigidly pelvis-dominant, with only a small
-    # lower/outer thigh contribution to avoid tearing during hip flexion.
     if part_name == "Clothing_Boxers":
-        lower_progress = _smoothstep(
-            (marks.hips_z - z) / max(dna.head_height * 0.13, 1e-6)
-        )
-        lateral_progress = _smoothstep(
-            (abs(x) - dna.hip_width * 0.18) / max(dna.hip_width * 0.34, 1e-6)
-        )
+        lower_progress = _smoothstep((marks.hips_z - z) / max(dna.head_height * 0.13, 1e-6))
+        lateral_progress = _smoothstep((abs(x) - dna.hip_width * 0.18) / max(dna.hip_width * 0.34, 1e-6))
         thigh_weight = min(0.16, 0.16 * lower_progress * lateral_progress)
         if thigh_weight <= 1e-6:
             return {"hips": 1.0}
@@ -241,31 +240,17 @@ def normalized_weights_for_point(point, dna, joints: Mapping[str, object], part_
         shoulder_upper = marks.shoulder_z + dna.arm_radius * 1.05
         shoulder_inner_x = dna.torso_width * 0.27
         shoulder_outer_x = marks.shoulder_x + dna.arm_radius * 0.72
-        if (
-            shoulder_lower <= z <= shoulder_upper
-            and shoulder_inner_x <= abs(x) <= shoulder_outer_x
-        ):
+        if shoulder_lower <= z <= shoulder_upper and shoulder_inner_x <= abs(x) <= shoulder_outer_x:
             side = "L" if x < 0 else "R"
-            lateral = _smoothstep(
-                (abs(x) - shoulder_inner_x)
-                / max(shoulder_outer_x - shoulder_inner_x, 1e-6)
-            )
+            lateral = _smoothstep((abs(x) - shoulder_inner_x) / max(shoulder_outer_x - shoulder_inner_x, 1e-6))
             vertical = (z - shoulder_lower) / max(shoulder_upper - shoulder_lower, 1e-6)
             lower_armpit = 1.0 - _smoothstep(vertical / 0.46)
             upper_cap = _smoothstep((vertical - 0.48) / 0.52)
             socket_band = max(0.0, 1.0 - lower_armpit - upper_cap)
-
-            # Lower armpit vertices remain chest-dominant to preserve the
-            # torso wall. The upper cap follows the arm, while the narrow
-            # middle band provides a bounded transition between them.
             lower_weight = 0.04 + 0.18 * lateral
             socket_weight = 0.20 + 0.42 * lateral
             cap_weight = 0.46 + 0.40 * lateral
-            arm_weight = (
-                lower_armpit * lower_weight
-                + socket_band * socket_weight
-                + upper_cap * cap_weight
-            )
+            arm_weight = lower_armpit * lower_weight + socket_band * socket_weight + upper_cap * cap_weight
             arm_weight = min(0.86, max(0.04, arm_weight))
             return {"chest": 1.0 - arm_weight, f"upper_arm.{side}": arm_weight}
 
