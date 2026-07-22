@@ -12,6 +12,8 @@ from .body_topology import TOPOLOGY_SCHEMA, normalized_weights_for_point
 from .rig_contract import RIG_ID, Joint, build_joint_spec, validate_joint_spec
 
 RIG_METADATA_SCHEMA = "humanoid-rig-metadata/v1"
+TARGET_BODY_TRIANGLES = 2200
+MAX_BODY_TRIANGLES = 2800
 
 RIGID_PART_BONES = {
     "Body_Head": "head",
@@ -66,6 +68,21 @@ def _create_armature(joints: Iterable[Joint]) -> bpy.types.Object:
     return armature
 
 
+def _activate(mesh: bpy.types.Object) -> None:
+    bpy.ops.object.select_all(action="DESELECT")
+    mesh.select_set(True)
+    bpy.context.view_layer.objects.active = mesh
+
+
+def _apply_modifier(mesh: bpy.types.Object, modifier: bpy.types.Modifier) -> None:
+    _activate(mesh)
+    bpy.ops.object.modifier_apply(modifier=modifier.name)
+
+
+def _triangle_count(mesh: bpy.types.Object) -> int:
+    return sum(max(0, len(polygon.vertices) - 2) for polygon in mesh.data.polygons)
+
+
 def _clear_groups(mesh: bpy.types.Object) -> None:
     for group in list(mesh.vertex_groups):
         mesh.vertex_groups.remove(group)
@@ -111,6 +128,14 @@ def _bind_deforming(
     _add_armature_modifier(mesh, armature)
 
 
+def _parent_to_armature(mesh: bpy.types.Object, armature: bpy.types.Object) -> None:
+    """Use the glTF-compatible armature hierarchy without changing world placement."""
+    world_matrix = mesh.matrix_world.copy()
+    mesh.parent = armature
+    mesh.parent_type = "OBJECT"
+    mesh.matrix_world = world_matrix
+
+
 def _mesh_component_count(mesh: bpy.types.Object) -> int:
     vertex_count = len(mesh.data.vertices)
     if vertex_count == 0:
@@ -134,16 +159,47 @@ def _mesh_component_count(mesh: bpy.types.Object) -> int:
     return components
 
 
+def _enforce_body_triangle_budget(mesh: bpy.types.Object) -> None:
+    initial_count = _triangle_count(mesh)
+    mesh["preRigReductionTriangleCount"] = initial_count
+    mesh["targetTriangleCount"] = TARGET_BODY_TRIANGLES
+
+    if initial_count > MAX_BODY_TRIANGLES:
+        decimate = mesh.modifiers.new("rig_low_poly_triangle_budget", "DECIMATE")
+        decimate.decimate_type = "COLLAPSE"
+        decimate.ratio = max(0.05, min(1.0, TARGET_BODY_TRIANGLES / initial_count))
+        _apply_modifier(mesh, decimate)
+
+    final_count = _triangle_count(mesh)
+    component_count = _mesh_component_count(mesh)
+    if component_count != 1:
+        raise ValueError(
+            "Body_Core lost connected topology while enforcing the rig triangle budget; "
+            f"found {component_count} components"
+        )
+    if final_count > MAX_BODY_TRIANGLES:
+        raise ValueError(
+            f"Body_Core has {final_count} triangles after reduction; maximum is {MAX_BODY_TRIANGLES}"
+        )
+
+    mesh["postRigReductionTriangleCount"] = final_count
+    mesh["triangleCount"] = final_count
+
+
 def _validate_connected_body(mesh: bpy.types.Object) -> dict:
     if mesh.get("topologySchema") != TOPOLOGY_SCHEMA:
         raise ValueError(f"Body_Core topologySchema must be {TOPOLOGY_SCHEMA}")
     component_count = _mesh_component_count(mesh)
     if component_count != 1:
         raise ValueError(f"Body_Core must be one connected mesh component; found {component_count}")
-    triangle_count = sum(max(0, len(polygon.vertices) - 2) for polygon in mesh.data.polygons)
+    triangle_count = _triangle_count(mesh)
     if triangle_count < 400:
         raise ValueError(
             f"Body_Core has only {triangle_count} triangles; joint-support topology was not generated"
+        )
+    if triangle_count > MAX_BODY_TRIANGLES:
+        raise ValueError(
+            f"Body_Core has {triangle_count} triangles; maximum is {MAX_BODY_TRIANGLES}"
         )
     return {
         "schema": mesh.get("topologySchema"),
@@ -155,6 +211,9 @@ def _validate_connected_body(mesh: bpy.types.Object) -> dict:
         "fusionVoxelSize": mesh.get("fusionVoxelSize"),
         "fusionAttemptCount": mesh.get("fusionAttemptCount"),
         "finalComponentCount": mesh.get("finalComponentCount"),
+        "preRigReductionTriangleCount": mesh.get("preRigReductionTriangleCount"),
+        "targetTriangleCount": mesh.get("targetTriangleCount"),
+        "postRigReductionTriangleCount": mesh.get("postRigReductionTriangleCount"),
     }
 
 
@@ -163,9 +222,13 @@ def validate_skinning(meshes: Iterable[bpy.types.Object], armature: bpy.types.Ob
     valid_bones = {bone.name for bone in armature.data.bones if bone.use_deform}
     weighted_vertices = 0
     maximum_influences = 0
+    parented_meshes = 0
     for mesh in meshes:
         if mesh.type != "MESH":
             continue
+        if mesh.parent != armature:
+            raise ValueError(f"{mesh.name} must be parented to {RIG_ID} for glTF skin export")
+        parented_meshes += 1
         modifiers = [
             modifier
             for modifier in mesh.modifiers
@@ -195,6 +258,7 @@ def validate_skinning(meshes: Iterable[bpy.types.Object], armature: bpy.types.Ob
         raise ValueError("Rig contains no weighted mesh vertices")
     return {
         "meshCount": len(meshes),
+        "parentedMeshCount": parented_meshes,
         "weightedVertexCount": weighted_vertices,
         "maximumInfluencesPerVertex": maximum_influences,
     }
@@ -217,6 +281,7 @@ def apply_humanoid_rig(root: bpy.types.Object, dna) -> tuple[bpy.types.Object, d
         raise ValueError(f"No deterministic skinning rule for generated meshes: {', '.join(unknown)}")
 
     body_mesh = next(mesh for mesh in meshes if mesh.name == "Body_Core")
+    _enforce_body_triangle_budget(body_mesh)
     body_topology = _validate_connected_body(body_mesh)
 
     for mesh in meshes:
@@ -224,6 +289,7 @@ def apply_humanoid_rig(root: bpy.types.Object, dna) -> tuple[bpy.types.Object, d
             _bind_rigid(mesh, armature, RIGID_PART_BONES[mesh.name])
         else:
             _bind_deforming(mesh, armature, dna, joints_by_name)
+        _parent_to_armature(mesh, armature)
 
     validation = validate_skinning(meshes, armature)
     metadata = {
