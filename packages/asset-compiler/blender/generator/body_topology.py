@@ -174,7 +174,7 @@ def candidate_bones_for_point(point, dna, part_name: str = "Body_Core") -> tuple
         shin = f"shin.{side}"
         foot = f"foot.{side}"
         if z >= marks.hips_z - dna.thigh_radius * 0.52:
-            return ("hips",)
+            return ("hips", thigh)
         if z >= marks.knee_z + dna.thigh_radius * 0.35:
             return ("hips", thigh)
         if z >= marks.knee_z - dna.calf_radius * 0.55:
@@ -200,6 +200,16 @@ def _segment_distance(point, start, end) -> float:
 
 
 def normalized_weights_for_point(point, dna, joints: Mapping[str, object], part_name: str = "Body_Core", max_influences: int = 3) -> dict[str, float]:
+    x, _, z = point
+    marks = resolve_body_landmarks(dna)
+    if part_name == "Body_Core" and marks.hips_z - dna.thigh_radius * 0.70 <= z <= marks.hips_z + dna.thigh_radius * 0.55:
+        side = "L" if x < 0 else "R"
+        lateral = min(1.0, abs(x) / max(marks.hip_x * 1.15, 1e-6))
+        thigh_weight = max(0.0, (lateral - 0.22) / 0.78) * 0.72
+        if thigh_weight > 1e-6:
+            return {"hips": 1.0 - thigh_weight, f"thigh.{side}": thigh_weight}
+        return {"hips": 1.0}
+
     candidates = candidate_bones_for_point(point, dna, part_name)
     scored: list[tuple[float, str]] = []
     for name in candidates:
