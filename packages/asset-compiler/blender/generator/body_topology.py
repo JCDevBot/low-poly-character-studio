@@ -173,6 +173,8 @@ def candidate_bones_for_point(point, dna, part_name: str = "Body_Core") -> tuple
         thigh = f"thigh.{side}"
         shin = f"shin.{side}"
         foot = f"foot.{side}"
+        if z >= marks.hips_z - dna.thigh_radius * 0.52:
+            return ("hips",)
         if z >= marks.knee_z + dna.thigh_radius * 0.35:
             return ("hips", thigh)
         if z >= marks.knee_z - dna.calf_radius * 0.55:
