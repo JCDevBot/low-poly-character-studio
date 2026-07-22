@@ -62,46 +62,25 @@ def _append_box(vertices, faces, center, dimensions) -> None:
     )
 
 
-def _append_tapered_panel(
-    vertices,
-    faces,
-    *,
-    bottom_z: float,
-    top_z: float,
-    bottom_width: float,
-    top_width: float,
-    bottom_center_y: float,
-    top_center_y: float,
-    thickness: float,
-) -> None:
-    """Append a low-poly garment band that follows torso depth between two heights."""
-    bottom_front_y = bottom_center_y - thickness / 2
-    bottom_back_y = bottom_center_y + thickness / 2
-    top_front_y = top_center_y - thickness / 2
-    top_back_y = top_center_y + thickness / 2
+def _append_extruded_profile(vertices, faces, profile, thickness: float) -> None:
+    """Extrude an ordered concave x/y/z outline into a thin garment panel."""
     start = len(vertices)
-    vertices.extend(
-        (
-            (-bottom_width / 2, bottom_front_y, bottom_z),
-            (bottom_width / 2, bottom_front_y, bottom_z),
-            (bottom_width / 2, bottom_back_y, bottom_z),
-            (-bottom_width / 2, bottom_back_y, bottom_z),
-            (-top_width / 2, top_front_y, top_z),
-            (top_width / 2, top_front_y, top_z),
-            (top_width / 2, top_back_y, top_z),
-            (-top_width / 2, top_back_y, top_z),
+    half = thickness / 2
+    count = len(profile)
+    vertices.extend((x, y - half, z) for x, y, z in profile)
+    vertices.extend((x, y + half, z) for x, y, z in profile)
+    faces.append(tuple(start + index for index in range(count)))
+    faces.append(tuple(start + count + index for index in range(count - 1, -1, -1)))
+    for index in range(count):
+        next_index = (index + 1) % count
+        faces.append(
+            (
+                start + index,
+                start + next_index,
+                start + count + next_index,
+                start + count + index,
+            )
         )
-    )
-    faces.extend(
-        (
-            (start + 0, start + 1, start + 2, start + 3),
-            (start + 4, start + 7, start + 6, start + 5),
-            (start + 0, start + 4, start + 5, start + 1),
-            (start + 1, start + 5, start + 6, start + 2),
-            (start + 2, start + 6, start + 7, start + 3),
-            (start + 4, start + 0, start + 3, start + 7),
-        )
-    )
 
 
 def _material_from(obj: bpy.types.Object):
@@ -118,108 +97,82 @@ def _remove(obj: bpy.types.Object) -> None:
 
 
 def _create_a_frame_shirt(dna, material) -> bpy.types.Object:
-    """Create body-hugging panels with readable depth, neckline, and open arm sides."""
+    """Create a fitted A-frame vest with a real neck cutout and open arm sides."""
     marks = resolve_body_landmarks(dna)
     torso_width = dna.torso_width * 1.02
-    panel_bottom = dna.waist_z + dna.head_height * 0.035
-    panel_mid = dna.torso_center_z
+    bottom_z = dna.waist_z + dna.head_height * 0.035
     underarm_z = marks.shoulder_z - dna.head_height * 0.15
-    neckline_z = marks.shoulder_z - dna.head_height * 0.075
-    strap_top = marks.shoulder_z + dna.head_height * 0.015
+    neckline_z = marks.shoulder_z - dna.head_height * 0.085
+    strap_top = marks.shoulder_z + dna.head_height * 0.020
     thickness = max(0.006, dna.torso_depth * 0.040)
 
-    front_bottom_y = -dna.torso_depth * 0.49
-    front_mid_y = -dna.torso_depth * 0.545
-    front_upper_y = -dna.torso_depth * 0.515
-    back_bottom_y = dna.torso_depth * 0.475
-    back_mid_y = dna.torso_depth * 0.505
-    back_upper_y = dna.torso_depth * 0.49
+    bottom_half = torso_width * 0.44
+    underarm_half = torso_width * 0.50
+    shoulder_outer = torso_width * 0.37
+    neck_outer = torso_width * 0.20
+    neck_inner = torso_width * 0.135
+
+    def front_y(z: float) -> float:
+        span = max(strap_top - bottom_z, 1e-6)
+        t = max(0.0, min(1.0, (z - bottom_z) / span))
+        belly = 0.055 * (1.0 - abs(t - 0.46) / 0.46) if t <= 0.92 else 0.0
+        return -dna.torso_depth * (0.49 + max(0.0, belly))
+
+    def back_y(z: float) -> float:
+        span = max(strap_top - bottom_z, 1e-6)
+        t = max(0.0, min(1.0, (z - bottom_z) / span))
+        return dna.torso_depth * (0.47 + 0.025 * min(1.0, t * 1.8))
+
+    # Clockwise concave front outline. The central notch is actual geometry,
+    # rather than white pieces laid over a rectangular chest plate.
+    front_profile = (
+        (-bottom_half, front_y(bottom_z), bottom_z),
+        (bottom_half, front_y(bottom_z), bottom_z),
+        (underarm_half, front_y(underarm_z), underarm_z),
+        (shoulder_outer, front_y(strap_top), strap_top),
+        (neck_outer, front_y(strap_top), strap_top),
+        (neck_inner, front_y(neckline_z), neckline_z),
+        (-neck_inner, front_y(neckline_z), neckline_z),
+        (-neck_outer, front_y(strap_top), strap_top),
+        (-shoulder_outer, front_y(strap_top), strap_top),
+        (-underarm_half, front_y(underarm_z), underarm_z),
+    )
+
+    back_neckline_z = marks.shoulder_z - dna.head_height * 0.025
+    back_profile = (
+        (-bottom_half, back_y(bottom_z), bottom_z),
+        (-underarm_half, back_y(underarm_z), underarm_z),
+        (-shoulder_outer, back_y(strap_top), strap_top),
+        (-neck_outer, back_y(strap_top), strap_top),
+        (-neck_inner, back_y(back_neckline_z), back_neckline_z),
+        (neck_inner, back_y(back_neckline_z), back_neckline_z),
+        (neck_outer, back_y(strap_top), strap_top),
+        (shoulder_outer, back_y(strap_top), strap_top),
+        (underarm_half, back_y(underarm_z), underarm_z),
+        (bottom_half, back_y(bottom_z), bottom_z),
+    )
 
     vertices = []
     faces = []
+    _append_extruded_profile(vertices, faces, front_profile, thickness)
+    _append_extruded_profile(vertices, faces, back_profile, thickness)
 
-    # Two depth-profiled bands keep the shirt close to the belly and chest instead
-    # of reading as one flat apron in side and three-quarter views.
-    _append_tapered_panel(
-        vertices,
-        faces,
-        bottom_z=panel_bottom,
-        top_z=panel_mid,
-        bottom_width=torso_width * 0.88,
-        top_width=torso_width * 0.96,
-        bottom_center_y=front_bottom_y,
-        top_center_y=front_mid_y,
-        thickness=thickness,
-    )
-    _append_tapered_panel(
-        vertices,
-        faces,
-        bottom_z=panel_mid,
-        top_z=underarm_z,
-        bottom_width=torso_width * 0.96,
-        top_width=torso_width,
-        bottom_center_y=front_mid_y,
-        top_center_y=front_upper_y,
-        thickness=thickness,
-    )
-
-    upper_height = max(dna.head_height * 0.085, neckline_z - underarm_z)
-    upper_z = underarm_z + upper_height / 2
-    upper_piece_width = torso_width * 0.285
+    # Short side bridges keep the lower garment coherent while preserving the
+    # open arm silhouette required by an A-frame undershirt.
+    bridge_top = bottom_z + (underarm_z - bottom_z) * 0.42
+    bridge_height = max(dna.head_height * 0.08, bridge_top - bottom_z)
+    bridge_z = bottom_z + bridge_height / 2
+    bridge_depth = dna.torso_depth * 0.94
     for sign in (-1.0, 1.0):
         _append_box(
             vertices,
             faces,
-            (sign * torso_width * 0.30, front_upper_y, upper_z),
-            (upper_piece_width, thickness, upper_height),
-        )
-
-    strap_height = max(dna.head_height * 0.095, strap_top - neckline_z)
-    strap_z = neckline_z + strap_height / 2
-    for sign in (-1.0, 1.0):
-        _append_box(
-            vertices,
-            faces,
-            (sign * torso_width * 0.30, front_upper_y + thickness * 0.15, strap_z),
-            (torso_width * 0.13, thickness, strap_height),
-        )
-
-    _append_tapered_panel(
-        vertices,
-        faces,
-        bottom_z=panel_bottom,
-        top_z=panel_mid,
-        bottom_width=torso_width * 0.88,
-        top_width=torso_width * 0.91,
-        bottom_center_y=back_bottom_y,
-        top_center_y=back_mid_y,
-        thickness=thickness,
-    )
-    _append_tapered_panel(
-        vertices,
-        faces,
-        bottom_z=panel_mid,
-        top_z=strap_top,
-        bottom_width=torso_width * 0.91,
-        top_width=torso_width * 0.68,
-        bottom_center_y=back_mid_y,
-        top_center_y=back_upper_y,
-        thickness=thickness,
-    )
-
-    side_height = max(dna.head_height * 0.10, (underarm_z - panel_bottom) * 0.34)
-    side_z = panel_bottom + side_height / 2
-    side_depth = dna.torso_depth * 0.96
-    for sign in (-1.0, 1.0):
-        _append_box(
-            vertices,
-            faces,
-            (sign * torso_width * 0.44, 0.0, side_z),
-            (thickness, side_depth, side_height),
+            (sign * bottom_half, 0.0, bridge_z),
+            (thickness, bridge_depth, bridge_height),
         )
 
     obj = _mesh_object("Clothing_AFrameShirt", vertices, faces, material)
-    obj["depthProfile"] = "waist-belly-chest/v1"
+    obj["depthProfile"] = "fitted-concave-vest/v2"
     return obj
 
 
