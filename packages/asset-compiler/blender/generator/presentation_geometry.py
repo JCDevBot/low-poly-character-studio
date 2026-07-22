@@ -72,7 +72,6 @@ def _append_tapered_side_panel(
 ) -> None:
     """Join front and back panels with a tapered, torso-following lower side seam."""
     start = len(vertices)
-    outer = sign * max(bottom_x, underarm_x)
     inner_bottom = sign * max(0.0, bottom_x - thickness)
     inner_underarm = sign * max(0.0, underarm_x - thickness)
     vertices.extend(
@@ -87,7 +86,6 @@ def _append_tapered_side_panel(
             (inner_bottom, back_bottom_y - thickness, bottom_z),
         )
     )
-    # The outer face follows the front/back depth profile instead of forming a box.
     faces.extend(
         (
             (start + 0, start + 1, start + 2, start + 3),
@@ -98,8 +96,6 @@ def _append_tapered_side_panel(
             (start + 3, start + 7, start + 4, start + 0),
         )
     )
-    # Retain a diagnostic landmark for generated-mesh inspection.
-    vertices[start] = (outer if sign > 0 else -outer, front_bottom_y, bottom_z)
 
 
 def _material_from(obj: bpy.types.Object):
