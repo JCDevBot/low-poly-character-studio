@@ -100,6 +100,8 @@ def _add_armature_modifier(mesh: bpy.types.Object, armature: bpy.types.Object) -
 
 
 def _bind_rigid(mesh: bpy.types.Object, armature: bpy.types.Object, bone_name: str) -> None:
+    _activate(mesh)
+    bpy.ops.object.transform_apply(location=False, rotation=False, scale=True)
     _clear_groups(mesh)
     group = mesh.vertex_groups.new(name=bone_name)
     group.add([vertex.index for vertex in mesh.data.vertices], 1.0, "REPLACE")
