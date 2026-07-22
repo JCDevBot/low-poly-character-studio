@@ -118,10 +118,15 @@ def build_body_graph(dna) -> tuple[tuple[BodyNode, ...], tuple[tuple[int, int], 
         add(f"calf.{suffix}", (x, 0, (marks.knee_z + marks.ankle_z) * 0.5), (dna.calf_radius * 1.08, dna.calf_radius * 1.02), f"knee-below.{suffix}")
         add(f"ankle-above.{suffix}", (x, 0, marks.ankle_z + leg_band * 0.72), (dna.calf_radius * 0.84, dna.calf_radius * 0.79), f"calf.{suffix}")
         add(f"ankle.{suffix}", (x, 0, marks.ankle_z), (dna.calf_radius * 0.72, dna.calf_radius * 0.68), f"ankle-above.{suffix}")
-        add(f"heel.{suffix}", (x, -dna.foot_length * 0.04, dna.foot_height * 0.76), (dna.foot_width * 0.46, dna.foot_height * 0.54), f"ankle.{suffix}")
-        add(f"ball.{suffix}", (x, -dna.foot_length * 0.40, dna.foot_height * 0.72), (dna.foot_width * 0.54, dna.foot_height * 0.50), f"heel.{suffix}")
-        add(f"toe.{suffix}", (x, marks.toe_y, dna.foot_height * 0.70), (dna.foot_width * 0.48, dna.foot_height * 0.42), f"ball.{suffix}")
-        add(f"toe-tip.{suffix}", (x, marks.toe_y - dna.foot_length * 0.08, dna.foot_height * 0.70), (dna.foot_width * 0.18, dna.foot_height * 0.18), f"toe.{suffix}")
+        # The visible broad foot is a rigid presentation shell. Keep only a short
+        # deforming anchor inside that shell so the Skin endpoint cannot protrude
+        # beneath or beyond the visible foot during neutral or posed review.
+        add(
+            f"foot-core.{suffix}",
+            (x, -dna.foot_length * 0.16, dna.foot_height * 0.90),
+            (dna.foot_width * 0.34, dna.foot_height * 0.40),
+            f"ankle.{suffix}",
+        )
 
     validate_body_graph(nodes, edges)
     return tuple(nodes), tuple(edges)
@@ -202,6 +207,9 @@ def _segment_distance(point, start, end) -> float:
 def normalized_weights_for_point(point, dna, joints: Mapping[str, object], part_name: str = "Body_Core", max_influences: int = 3) -> dict[str, float]:
     x, _, z = point
     marks = resolve_body_landmarks(dna)
+    if part_name == "Body_Core" and z <= marks.ankle_z + dna.calf_radius * 0.18:
+        side = "L" if x < 0 else "R"
+        return {f"foot.{side}": 1.0}
     if part_name == "Body_Core" and marks.hips_z - dna.thigh_radius * 0.70 <= z <= marks.hips_z + dna.thigh_radius * 0.55:
         side = "L" if x < 0 else "R"
         lateral = min(1.0, abs(x) / max(marks.hip_x * 1.15, 1e-6))
