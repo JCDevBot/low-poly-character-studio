@@ -95,7 +95,13 @@ def build_body_graph(dna) -> tuple[tuple[BodyNode, ...], tuple[tuple[int, int], 
     for suffix, sign in (("L", -1.0), ("R", 1.0)):
         x = lambda value: sign * value
         add(f"clavicle.{suffix}", (x(dna.torso_width * 0.30), 0, marks.shoulder_z + dna.arm_radius * 0.06), (dna.arm_radius * 1.38, dna.arm_radius * 1.25), "upper-chest")
-        add(f"shoulder.{suffix}", (x(marks.shoulder_x), 0, marks.shoulder_z), (dna.arm_radius * 1.22, dna.arm_radius * 1.16), f"clavicle.{suffix}")
+        add(
+            f"armpit-support.{suffix}",
+            (x(marks.shoulder_x - dna.arm_radius * 0.48), 0, marks.shoulder_z - dna.arm_radius * 0.72),
+            (dna.arm_radius * 1.42, dna.arm_radius * 1.30),
+            f"clavicle.{suffix}",
+        )
+        add(f"shoulder.{suffix}", (x(marks.shoulder_x), 0, marks.shoulder_z), (dna.arm_radius * 1.22, dna.arm_radius * 1.16), f"armpit-support.{suffix}")
         add(f"upper-arm.{suffix}", (x(marks.shoulder_x + dna.arm_radius * 0.10), 0, marks.shoulder_z - dna.arm_length * 0.22), (dna.arm_radius * 1.10, dna.arm_radius * 1.04), f"shoulder.{suffix}")
         add(f"elbow-above.{suffix}", (x(marks.elbow_x), 0, marks.elbow_z + arm_band), (dna.arm_radius * 1.02, dna.arm_radius * 0.96), f"upper-arm.{suffix}")
         add(f"elbow.{suffix}", (x(marks.elbow_x), 0, marks.elbow_z), (dna.arm_radius * 0.92, dna.arm_radius * 0.88), f"elbow-above.{suffix}")
