@@ -47,7 +47,7 @@ def main() -> None:
     compact_nodes, compact_edges = build_body_graph(compact)
     tall_nodes, _ = build_body_graph(tall)
     validate_body_graph(compact_nodes, compact_edges)
-    assert len(compact_nodes) >= 46
+    assert len(compact_nodes) >= 48
     assert len(compact_edges) == len(compact_nodes) - 1
     assert compact_nodes == build_body_graph(compact)[0]
     assert compact_nodes != tall_nodes
@@ -55,6 +55,8 @@ def main() -> None:
     for required in (
         "upper-chest",
         "neck-top",
+        "armpit-support.L",
+        "armpit-support.R",
         "elbow-above.L",
         "elbow.L",
         "elbow-below.L",
@@ -67,6 +69,17 @@ def main() -> None:
     ):
         assert required in node_names
     assert "toe-tip.L" not in node_names
+
+    nodes_by_name = {node.name: node for node in compact_nodes}
+    left_clavicle = nodes_by_name["clavicle.L"]
+    left_support = nodes_by_name["armpit-support.L"]
+    left_shoulder = nodes_by_name["shoulder.L"]
+    assert abs(left_clavicle.point[0]) < abs(left_support.point[0]) < abs(left_shoulder.point[0])
+    assert left_support.point[2] < left_shoulder.point[2]
+    assert left_support.radius[0] > left_shoulder.radius[0]
+    node_index = {node.name: index for index, node in enumerate(compact_nodes)}
+    assert (node_index["clavicle.L"], node_index["armpit-support.L"]) in compact_edges
+    assert (node_index["armpit-support.L"], node_index["shoulder.L"]) in compact_edges
 
     marks = resolve_body_landmarks(compact)
     assert compact.head_bottom_z - marks.shoulder_z < compact.head_height * 0.28
