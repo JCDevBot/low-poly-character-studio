@@ -150,7 +150,7 @@ class LittleGuyDNA:
 
     @property
     def arm_radius(self) -> float:
-        return self.head_height * 0.090
+        return self.head_height * 0.100
 
     @property
     def leg_length(self) -> float:
@@ -158,15 +158,15 @@ class LittleGuyDNA:
 
     @property
     def thigh_radius(self) -> float:
-        return self.head_height * self.thigh_width_ratio * 0.34
+        return self.head_height * self.thigh_width_ratio * 0.46
 
     @property
     def calf_radius(self) -> float:
-        return self.head_height * self.calf_width_ratio * 0.34
+        return self.head_height * self.calf_width_ratio * 0.43
 
     @property
     def foot_width(self) -> float:
-        return self.head_height * 0.30
+        return self.head_height * 0.36
 
     @property
     def foot_length(self) -> float:
