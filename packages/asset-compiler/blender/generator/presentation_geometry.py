@@ -34,34 +34,6 @@ def _mesh_object(name: str, vertices, faces, material) -> bpy.types.Object:
     return obj
 
 
-def _append_box(vertices, faces, center, dimensions) -> None:
-    cx, cy, cz = center
-    hx, hy, hz = (value / 2 for value in dimensions)
-    start = len(vertices)
-    vertices.extend(
-        (
-            (cx - hx, cy - hy, cz - hz),
-            (cx + hx, cy - hy, cz - hz),
-            (cx + hx, cy + hy, cz - hz),
-            (cx - hx, cy + hy, cz - hz),
-            (cx - hx, cy - hy, cz + hz),
-            (cx + hx, cy - hy, cz + hz),
-            (cx + hx, cy + hy, cz + hz),
-            (cx - hx, cy + hy, cz + hz),
-        )
-    )
-    faces.extend(
-        (
-            (start + 0, start + 1, start + 2, start + 3),
-            (start + 4, start + 7, start + 6, start + 5),
-            (start + 0, start + 4, start + 5, start + 1),
-            (start + 1, start + 5, start + 6, start + 2),
-            (start + 2, start + 6, start + 7, start + 3),
-            (start + 4, start + 0, start + 3, start + 7),
-        )
-    )
-
-
 def _append_extruded_profile(vertices, faces, profile, thickness: float) -> None:
     """Extrude an ordered concave x/y/z outline into a thin garment panel."""
     start = len(vertices)
@@ -81,6 +53,53 @@ def _append_extruded_profile(vertices, faces, profile, thickness: float) -> None
                 start + count + index,
             )
         )
+
+
+def _append_tapered_side_panel(
+    vertices,
+    faces,
+    *,
+    sign: float,
+    bottom_x: float,
+    underarm_x: float,
+    bottom_z: float,
+    underarm_z: float,
+    front_bottom_y: float,
+    front_underarm_y: float,
+    back_bottom_y: float,
+    back_underarm_y: float,
+    thickness: float,
+) -> None:
+    """Join front and back panels with a tapered, torso-following lower side seam."""
+    start = len(vertices)
+    outer = sign * max(bottom_x, underarm_x)
+    inner_bottom = sign * max(0.0, bottom_x - thickness)
+    inner_underarm = sign * max(0.0, underarm_x - thickness)
+    vertices.extend(
+        (
+            (sign * bottom_x, front_bottom_y, bottom_z),
+            (sign * underarm_x, front_underarm_y, underarm_z),
+            (sign * underarm_x, back_underarm_y, underarm_z),
+            (sign * bottom_x, back_bottom_y, bottom_z),
+            (inner_bottom, front_bottom_y + thickness, bottom_z),
+            (inner_underarm, front_underarm_y + thickness, underarm_z),
+            (inner_underarm, back_underarm_y - thickness, underarm_z),
+            (inner_bottom, back_bottom_y - thickness, bottom_z),
+        )
+    )
+    # The outer face follows the front/back depth profile instead of forming a box.
+    faces.extend(
+        (
+            (start + 0, start + 1, start + 2, start + 3),
+            (start + 7, start + 6, start + 5, start + 4),
+            (start + 0, start + 4, start + 5, start + 1),
+            (start + 1, start + 5, start + 6, start + 2),
+            (start + 2, start + 6, start + 7, start + 3),
+            (start + 3, start + 7, start + 4, start + 0),
+        )
+    )
+    # Retain a diagnostic landmark for generated-mesh inspection.
+    vertices[start] = (outer if sign > 0 else -outer, front_bottom_y, bottom_z)
 
 
 def _material_from(obj: bpy.types.Object):
@@ -155,23 +174,27 @@ def _create_a_frame_shirt(dna, material) -> bpy.types.Object:
     _append_extruded_profile(vertices, faces, front_profile, thickness)
     _append_extruded_profile(vertices, faces, back_profile, thickness)
 
-    # Full lower side seams make the garment read as a fitted shirt in profile;
-    # the arm opening remains above underarm_z.
-    bridge_height = max(dna.head_height * 0.10, underarm_z - bottom_z)
-    bridge_z = bottom_z + bridge_height / 2
-    bridge_depth = dna.torso_depth * 0.96
-    bridge_x = (bottom_half + underarm_half) * 0.5
-    bridge_width = max(thickness, (underarm_half - bottom_half) * 0.90)
+    # Join only the lower torso. The tapered seams inherit the front/back depth
+    # profiles, avoiding the rectangular slab visible in prior side renders while
+    # preserving open armholes above the underarm landmark.
     for sign in (-1.0, 1.0):
-        _append_box(
+        _append_tapered_side_panel(
             vertices,
             faces,
-            (sign * bridge_x, 0.0, bridge_z),
-            (bridge_width, bridge_depth, bridge_height),
+            sign=sign,
+            bottom_x=bottom_half,
+            underarm_x=underarm_half,
+            bottom_z=bottom_z,
+            underarm_z=underarm_z,
+            front_bottom_y=front_y(bottom_z),
+            front_underarm_y=front_y(underarm_z),
+            back_bottom_y=back_y(bottom_z),
+            back_underarm_y=back_y(underarm_z),
+            thickness=thickness,
         )
 
     obj = _mesh_object("Clothing_AFrameShirt", vertices, faces, material)
-    obj["depthProfile"] = "fitted-concave-vest/v3"
+    obj["depthProfile"] = "fitted-tapered-vest/v4"
     return obj
 
 
