@@ -46,7 +46,7 @@ def main() -> None:
     compact_nodes, compact_edges = build_body_graph(compact)
     tall_nodes, _ = build_body_graph(tall)
     validate_body_graph(compact_nodes, compact_edges)
-    assert len(compact_nodes) >= 52
+    assert len(compact_nodes) >= 46
     assert len(compact_edges) == len(compact_nodes) - 1
     assert compact_nodes == build_body_graph(compact)[0]
     assert compact_nodes != tall_nodes
@@ -62,9 +62,10 @@ def main() -> None:
         "knee.L",
         "knee-below.L",
         "ankle.L",
-        "toe.L",
+        "foot-core.L",
     ):
         assert required in node_names
+    assert "toe-tip.L" not in node_names
 
     marks = resolve_body_landmarks(compact)
     assert compact.head_bottom_z - marks.shoulder_z < compact.head_height * 0.28
@@ -95,14 +96,19 @@ def main() -> None:
         ),
         {"forearm.L", "hand.L"},
     )
-    assert_blend(
-        normalized_weights_for_point(
-            (-marks.hip_x, 0, marks.ankle_z),
-            compact,
-            by_name,
-        ),
-        {"shin.L", "foot.L"},
+    ankle_transition = normalized_weights_for_point(
+        (-marks.hip_x, 0, marks.ankle_z + compact.calf_radius * 0.35),
+        compact,
+        by_name,
     )
+    assert_blend(ankle_transition, {"shin.L", "foot.L"})
+    foot_core_weights = normalized_weights_for_point(
+        (-marks.hip_x, -compact.foot_length * 0.16, compact.foot_height * 0.90),
+        compact,
+        by_name,
+    )
+    assert foot_core_weights == {"foot.L": 1.0}
+
     neck_weights = normalized_weights_for_point(
         (0, 0, marks.chest_z),
         compact,
