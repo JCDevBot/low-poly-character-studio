@@ -61,16 +61,25 @@ def _append_rounded_side_panel(
     *,
     sign: float,
     bottom_x: float,
+    middle_x: float,
     underarm_x: float,
     bottom_z: float,
+    middle_z: float,
     underarm_z: float,
     front_bottom_y: float,
+    front_middle_y: float,
     front_underarm_y: float,
     back_bottom_y: float,
+    back_middle_y: float,
     back_underarm_y: float,
     thickness: float,
 ) -> None:
-    """Join the vest panels with a two-facet rounded lower side contour."""
+    """Join vest panels with a fitted three-level lower side contour.
+
+    The intermediate waist/chest ring prevents the side silhouette from being a
+    single straight prism between the hem and underarm. It also introduces stable,
+    intentional facets without adding subdivision or simulated cloth.
+    """
     start = len(vertices)
     bottom_mid_x = sign * bottom_x * 1.035
     underarm_mid_x = sign * underarm_x * 1.035
@@ -80,9 +89,11 @@ def _append_rounded_side_panel(
 
     outer = (
         (sign * bottom_x, front_bottom_y, bottom_z),
+        (sign * middle_x, front_middle_y, middle_z),
         (sign * underarm_x, front_underarm_y, underarm_z),
         (underarm_mid_x, underarm_mid_y, underarm_z),
         (sign * underarm_x, back_underarm_y, underarm_z),
+        (sign * middle_x, back_middle_y, middle_z),
         (sign * bottom_x, back_bottom_y, bottom_z),
         (bottom_mid_x, bottom_mid_y, bottom_z),
     )
@@ -131,11 +142,13 @@ def _create_a_frame_shirt(dna, material) -> bpy.types.Object:
     torso_width = dna.torso_width * 1.02
     bottom_z = dna.waist_z + dna.head_height * 0.035
     underarm_z = marks.shoulder_z - dna.head_height * 0.15
+    middle_z = bottom_z + (underarm_z - bottom_z) * 0.56
     neckline_z = marks.shoulder_z - dna.head_height * 0.085
     strap_top = marks.shoulder_z + dna.head_height * 0.020
     thickness = max(0.006, dna.torso_depth * 0.040)
 
     bottom_half = torso_width * 0.40
+    middle_half = torso_width * 0.425
     underarm_half = torso_width * 0.47
     shoulder_outer = torso_width * 0.36
     neck_outer = torso_width * 0.20
@@ -155,6 +168,7 @@ def _create_a_frame_shirt(dna, material) -> bpy.types.Object:
     front_profile = (
         (-bottom_half, front_y(bottom_z), bottom_z),
         (bottom_half, front_y(bottom_z), bottom_z),
+        (middle_half, front_y(middle_z), middle_z),
         (underarm_half, front_y(underarm_z), underarm_z),
         (shoulder_outer, front_y(strap_top), strap_top),
         (neck_outer, front_y(strap_top), strap_top),
@@ -163,11 +177,13 @@ def _create_a_frame_shirt(dna, material) -> bpy.types.Object:
         (-neck_outer, front_y(strap_top), strap_top),
         (-shoulder_outer, front_y(strap_top), strap_top),
         (-underarm_half, front_y(underarm_z), underarm_z),
+        (-middle_half, front_y(middle_z), middle_z),
     )
 
     back_neckline_z = marks.shoulder_z - dna.head_height * 0.025
     back_profile = (
         (-bottom_half, back_y(bottom_z), bottom_z),
+        (-middle_half, back_y(middle_z), middle_z),
         (-underarm_half, back_y(underarm_z), underarm_z),
         (-shoulder_outer, back_y(strap_top), strap_top),
         (-neck_outer, back_y(strap_top), strap_top),
@@ -176,6 +192,7 @@ def _create_a_frame_shirt(dna, material) -> bpy.types.Object:
         (neck_outer, back_y(strap_top), strap_top),
         (shoulder_outer, back_y(strap_top), strap_top),
         (underarm_half, back_y(underarm_z), underarm_z),
+        (middle_half, back_y(middle_z), middle_z),
         (bottom_half, back_y(bottom_z), bottom_z),
     )
 
@@ -184,27 +201,32 @@ def _create_a_frame_shirt(dna, material) -> bpy.types.Object:
     _append_extruded_profile(vertices, faces, front_profile, thickness)
     _append_extruded_profile(vertices, faces, back_profile, thickness)
 
-    # Join only the lower torso. A center ridge splits each side into front and
-    # back facets so the side silhouette wraps around the body instead of reading
-    # as one broad vertical slab. Armholes remain open above the underarm line.
+    # Join only the lower torso. The waist/chest ring makes the garment follow the
+    # torso depth profile rather than spanning the hem and underarm with one slab.
+    # Armholes remain open above the underarm line.
     for sign in (-1.0, 1.0):
         _append_rounded_side_panel(
             vertices,
             faces,
             sign=sign,
             bottom_x=bottom_half,
+            middle_x=middle_half,
             underarm_x=underarm_half,
             bottom_z=bottom_z,
+            middle_z=middle_z,
             underarm_z=underarm_z,
             front_bottom_y=front_y(bottom_z),
+            front_middle_y=front_y(middle_z),
             front_underarm_y=front_y(underarm_z),
             back_bottom_y=back_y(bottom_z),
+            back_middle_y=back_y(middle_z),
             back_underarm_y=back_y(underarm_z),
             thickness=thickness,
         )
 
     obj = _mesh_object("Clothing_AFrameShirt", vertices, faces, material)
-    obj["depthProfile"] = "fitted-rounded-vest/v5"
+    obj["depthProfile"] = "fitted-rounded-vest/v6"
+    obj["depthRingCount"] = 3
     return obj
 
 
