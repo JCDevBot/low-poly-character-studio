@@ -141,6 +141,30 @@ def main() -> None:
     )
     assert_blend(hip_weights, {"hips", "thigh.L"})
 
+    boxer_waistband = normalized_weights_for_point(
+        (-compact.hip_width * 0.45, 0, marks.hips_z + compact.head_height * 0.01),
+        compact,
+        by_name,
+        part_name="Clothing_Boxers",
+    )
+    assert boxer_waistband == {"hips": 1.0}
+    boxer_lower_outer = normalized_weights_for_point(
+        (-compact.hip_width * 0.50, 0, marks.hips_z - compact.head_height * 0.11),
+        compact,
+        by_name,
+        part_name="Clothing_Boxers",
+    )
+    assert_blend(boxer_lower_outer, {"hips", "thigh.L"})
+    assert boxer_lower_outer["hips"] >= 0.84
+    assert boxer_lower_outer["thigh.L"] <= 0.16
+    boxer_center = normalized_weights_for_point(
+        (0, 0, marks.hips_z - compact.head_height * 0.11),
+        compact,
+        by_name,
+        part_name="Clothing_Boxers",
+    )
+    assert boxer_center == {"hips": 1.0}
+
     invalid = list(compact_joints)
     invalid.pop()
     try:
@@ -157,7 +181,7 @@ def main() -> None:
     except ValueError as error:
         assert "connected" in str(error).lower() or "tree" in str(error).lower()
     else:
-        raise AssertionError("disconnected body graph should fail validation")
+        raise AssertionError("disconnected body should fail validation")
 
     print("humanoid rig and connected-body contract tests passed")
 
