@@ -116,74 +116,68 @@ def _remove(obj: bpy.types.Object) -> None:
 def _create_a_frame_shirt(dna, material) -> bpy.types.Object:
     """Create body-hugging front/back panels with open arm and neck silhouettes."""
     marks = resolve_body_landmarks(dna)
-    torso_width = dna.torso_width * 1.06
-    panel_bottom = dna.waist_z + dna.head_height * 0.025
-    underarm_z = marks.shoulder_z - dna.head_height * 0.14
+    torso_width = dna.torso_width * 1.02
+    panel_bottom = dna.waist_z + dna.head_height * 0.035
+    underarm_z = marks.shoulder_z - dna.head_height * 0.15
     neckline_z = marks.shoulder_z - dna.head_height * 0.075
-    strap_top = marks.shoulder_z + dna.head_height * 0.020
-    front_y = -dna.torso_depth * 0.515
-    back_y = dna.torso_depth * 0.515
-    thickness = max(0.008, dna.torso_depth * 0.055)
+    strap_top = marks.shoulder_z + dna.head_height * 0.015
+    front_y = -dna.torso_depth * 0.505
+    back_y = dna.torso_depth * 0.505
+    thickness = max(0.006, dna.torso_depth * 0.040)
 
     vertices = []
     faces = []
 
-    # Lower front panel follows the torso and stops before the armpits rather
-    # than forming the previous full-depth apron block.
     _append_tapered_panel(
         vertices,
         faces,
         bottom_z=panel_bottom,
         top_z=underarm_z,
-        bottom_width=torso_width * 0.92,
+        bottom_width=torso_width * 0.88,
         top_width=torso_width,
         center_y=front_y,
         thickness=thickness,
     )
 
-    # Split upper chest pieces leave a readable U-shaped neckline.
-    upper_height = max(dna.head_height * 0.09, neckline_z - underarm_z)
+    upper_height = max(dna.head_height * 0.085, neckline_z - underarm_z)
     upper_z = underarm_z + upper_height / 2
-    upper_piece_width = torso_width * 0.31
+    upper_piece_width = torso_width * 0.285
     for sign in (-1.0, 1.0):
         _append_box(
             vertices,
             faces,
-            (sign * torso_width * 0.29, front_y, upper_z),
+            (sign * torso_width * 0.30, front_y, upper_z),
             (upper_piece_width, thickness, upper_height),
         )
 
-    # Narrow straps rise to the shoulder line and preserve open armholes.
-    strap_height = max(dna.head_height * 0.10, strap_top - neckline_z)
+    strap_height = max(dna.head_height * 0.095, strap_top - neckline_z)
     strap_z = neckline_z + strap_height / 2
     for sign in (-1.0, 1.0):
         _append_box(
             vertices,
             faces,
             (sign * torso_width * 0.30, front_y, strap_z),
-            (torso_width * 0.15, thickness, strap_height),
+            (torso_width * 0.13, thickness, strap_height),
         )
 
-    # The back is a separate thin panel. Short lower side bridges keep the
-    # garment coherent while leaving the upper side and arm openings clear.
     _append_tapered_panel(
         vertices,
         faces,
         bottom_z=panel_bottom,
         top_z=strap_top,
-        bottom_width=torso_width * 0.92,
-        top_width=torso_width * 0.72,
+        bottom_width=torso_width * 0.88,
+        top_width=torso_width * 0.68,
         center_y=back_y,
         thickness=thickness,
     )
-    side_height = max(dna.head_height * 0.11, (underarm_z - panel_bottom) * 0.38)
+    side_height = max(dna.head_height * 0.10, (underarm_z - panel_bottom) * 0.34)
     side_z = panel_bottom + side_height / 2
     for sign in (-1.0, 1.0):
         _append_box(
             vertices,
             faces,
-            (sign * torso_width * 0.46, 0.0, side_z),
-            (thickness, dna.torso_depth * 1.01, side_height),
+            (sign * torso_width * 0.44, 0.0, side_z),
+            (thickness, dna.torso_depth * 0.98, side_height),
         )
 
     return _mesh_object("Clothing_AFrameShirt", vertices, faces, material)
@@ -191,14 +185,13 @@ def _create_a_frame_shirt(dna, material) -> bpy.types.Object:
 
 def _create_foot(name: str, x: float, dna, material) -> bpy.types.Object:
     """Create a broad grounded bare foot that encloses the deforming foot core."""
-    heel_y = dna.foot_length * 0.04
-    mid_y = -dna.foot_length * 0.48
+    heel_y = dna.foot_length * 0.05
+    mid_y = -dna.foot_length * 0.46
     toe_y = -dna.foot_length * 0.98
-    heel_half = dna.foot_width * 0.35
-    mid_half = dna.foot_width * 0.56
-    toe_half = dna.foot_width * 0.52
-    bottom_z = -dna.foot_height * 0.10
-    top_z = dna.foot_height * 1.40
+    heel_half = dna.foot_width * 0.32
+    mid_half = dna.foot_width * 0.50
+    toe_half = dna.foot_width * 0.47
+    bottom_z = -dna.foot_height * 0.12
 
     outline = (
         (-heel_half, heel_y),
@@ -208,8 +201,16 @@ def _create_foot(name: str, x: float, dna, material) -> bpy.types.Object:
         (-toe_half, toe_y),
         (-mid_half, mid_y),
     )
+    top_heights = (
+        dna.foot_height * 1.30,
+        dna.foot_height * 1.30,
+        dna.foot_height * 1.12,
+        dna.foot_height * 0.78,
+        dna.foot_height * 0.78,
+        dna.foot_height * 1.12,
+    )
     vertices = [(x + px, py, bottom_z) for px, py in outline]
-    vertices.extend((x + px, py, top_z) for px, py in outline)
+    vertices.extend((x + px, py, top_z) for (px, py), top_z in zip(outline, top_heights))
     count = len(outline)
     faces = [tuple(range(count - 1, -1, -1)), tuple(range(count, count * 2))]
     for index in range(count):
@@ -218,7 +219,7 @@ def _create_foot(name: str, x: float, dna, material) -> bpy.types.Object:
 
     obj = _mesh_object(name, vertices, faces, material)
     bevel = obj.modifiers.new("broad_foot_edges", "BEVEL")
-    bevel.width = max(0.004, dna.foot_height * 0.10)
+    bevel.width = max(0.003, dna.foot_height * 0.075)
     bevel.segments = 1
     return obj
 
@@ -238,10 +239,11 @@ def refine_presentation_geometry(root: bpy.types.Object, dna) -> None:
     _remove(right_foot)
 
     marks = resolve_body_landmarks(dna)
+    foot_center_x = max(marks.hip_x, dna.foot_width * 0.58)
     replacements = (
         _create_a_frame_shirt(dna, shirt_material),
-        _create_foot("Body_LeftFoot", -marks.hip_x, dna, foot_material),
-        _create_foot("Body_RightFoot", marks.hip_x, dna, foot_material),
+        _create_foot("Body_LeftFoot", -foot_center_x, dna, foot_material),
+        _create_foot("Body_RightFoot", foot_center_x, dna, foot_material),
     )
     for part in replacements:
         part.parent = root
