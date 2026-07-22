@@ -80,202 +80,48 @@ def build_body_graph(dna) -> tuple[tuple[BodyNode, ...], tuple[tuple[int, int], 
             edges.append((by_name[parent], index))
 
     torso_depth_radius = max(dna.torso_depth * 0.50, dna.arm_radius * 1.35)
-    add(
-        "hips",
-        (0, 0, marks.hips_z),
-        (max(dna.hip_width * 0.52, dna.thigh_radius * 2.35), torso_depth_radius * 1.04),
-    )
-    add(
-        "waist",
-        (0, 0, marks.hips_z + dna.torso_height * 0.16),
-        (max(dna.waist_width * 0.52, dna.torso_width * 0.43), dna.torso_depth * 0.49),
-        "hips",
-    )
-    add(
-        "belly",
-        (0, -dna.torso_depth * 0.025, dna.torso_center_z),
-        (dna.torso_width * 0.53, dna.torso_depth * 0.53),
-        "waist",
-    )
-    add(
-        "chest",
-        (0, 0, marks.chest_z),
-        (dna.torso_width * 0.59, dna.torso_depth * 0.54),
-        "belly",
-    )
-    add(
-        "upper-chest",
-        (0, 0, marks.shoulder_z - dna.head_height * 0.018),
-        (dna.torso_width * 0.55, dna.torso_depth * 0.51),
-        "chest",
-    )
+    add("hips", (0, 0, marks.hips_z), (max(dna.hip_width * 0.52, dna.thigh_radius * 2.35), torso_depth_radius * 1.04))
+    add("waist", (0, 0, marks.hips_z + dna.torso_height * 0.16), (max(dna.waist_width * 0.52, dna.torso_width * 0.43), dna.torso_depth * 0.49), "hips")
+    add("belly", (0, -dna.torso_depth * 0.025, dna.torso_center_z), (dna.torso_width * 0.53, dna.torso_depth * 0.53), "waist")
+    add("chest", (0, 0, marks.chest_z), (dna.torso_width * 0.59, dna.torso_depth * 0.54), "belly")
+    add("upper-chest", (0, 0, marks.shoulder_z - dna.head_height * 0.018), (dna.torso_width * 0.55, dna.torso_depth * 0.51), "chest")
 
     neck_radius = max(dna.arm_radius * 0.92, dna.head_width * 0.066)
-    add(
-        "neck-base",
-        (0, 0, dna.neck_z - dna.head_height * 0.022),
-        (neck_radius * 1.18, neck_radius * 1.08),
-        "upper-chest",
-    )
-    add(
-        "neck-top",
-        (0, 0, marks.neck_top_z),
-        (neck_radius, neck_radius * 0.94),
-        "neck-base",
-    )
+    add("neck-base", (0, 0, dna.neck_z - dna.head_height * 0.022), (neck_radius * 1.18, neck_radius * 1.08), "upper-chest")
+    add("neck-top", (0, 0, marks.neck_top_z), (neck_radius, neck_radius * 0.94), "neck-base")
 
     arm_band = max(dna.arm_radius * 0.72, dna.arm_length * 0.035)
     hand_length = marks.wrist_z - marks.hand_tip_z
     for suffix, sign in (("L", -1.0), ("R", 1.0)):
         x = lambda value: sign * value
-        add(
-            f"clavicle.{suffix}",
-            (x(dna.torso_width * 0.30), 0, marks.shoulder_z + dna.arm_radius * 0.06),
-            (dna.arm_radius * 1.38, dna.arm_radius * 1.25),
-            "upper-chest",
-        )
-        add(
-            f"shoulder.{suffix}",
-            (x(marks.shoulder_x), 0, marks.shoulder_z),
-            (dna.arm_radius * 1.22, dna.arm_radius * 1.16),
-            f"clavicle.{suffix}",
-        )
-        add(
-            f"upper-arm.{suffix}",
-            (x(marks.shoulder_x + dna.arm_radius * 0.10), 0, marks.shoulder_z - dna.arm_length * 0.22),
-            (dna.arm_radius * 1.10, dna.arm_radius * 1.04),
-            f"shoulder.{suffix}",
-        )
-        add(
-            f"elbow-above.{suffix}",
-            (x(marks.elbow_x), 0, marks.elbow_z + arm_band),
-            (dna.arm_radius * 1.02, dna.arm_radius * 0.96),
-            f"upper-arm.{suffix}",
-        )
-        add(
-            f"elbow.{suffix}",
-            (x(marks.elbow_x), 0, marks.elbow_z),
-            (dna.arm_radius * 0.92, dna.arm_radius * 0.88),
-            f"elbow-above.{suffix}",
-        )
-        add(
-            f"elbow-below.{suffix}",
-            (x(marks.elbow_x + dna.arm_radius * 0.06), 0, marks.elbow_z - arm_band),
-            (dna.arm_radius * 0.96, dna.arm_radius * 0.91),
-            f"elbow.{suffix}",
-        )
-        add(
-            f"forearm.{suffix}",
-            (x((marks.elbow_x + marks.wrist_x) * 0.5), 0, (marks.elbow_z + marks.wrist_z) * 0.5),
-            (dna.arm_radius * 0.91, dna.arm_radius * 0.86),
-            f"elbow-below.{suffix}",
-        )
-        add(
-            f"wrist-above.{suffix}",
-            (x(marks.wrist_x), 0, marks.wrist_z + arm_band * 0.70),
-            (dna.arm_radius * 0.78, dna.arm_radius * 0.73),
-            f"forearm.{suffix}",
-        )
-        add(
-            f"wrist.{suffix}",
-            (x(marks.wrist_x), 0, marks.wrist_z),
-            (dna.arm_radius * 0.70, dna.arm_radius * 0.66),
-            f"wrist-above.{suffix}",
-        )
-        add(
-            f"hand.{suffix}",
-            (x(marks.wrist_x), -dna.arm_radius * 0.12, marks.wrist_z - hand_length * 0.43),
-            (dna.arm_radius * 1.58, dna.arm_radius * 1.30),
-            f"wrist.{suffix}",
-        )
-        add(
-            f"hand-tip.{suffix}",
-            (x(marks.wrist_x), -dna.arm_radius * 0.20, marks.hand_tip_z),
-            (dna.arm_radius * 1.22, dna.arm_radius * 1.00),
-            f"hand.{suffix}",
-        )
+        add(f"clavicle.{suffix}", (x(dna.torso_width * 0.30), 0, marks.shoulder_z + dna.arm_radius * 0.06), (dna.arm_radius * 1.38, dna.arm_radius * 1.25), "upper-chest")
+        add(f"shoulder.{suffix}", (x(marks.shoulder_x), 0, marks.shoulder_z), (dna.arm_radius * 1.22, dna.arm_radius * 1.16), f"clavicle.{suffix}")
+        add(f"upper-arm.{suffix}", (x(marks.shoulder_x + dna.arm_radius * 0.10), 0, marks.shoulder_z - dna.arm_length * 0.22), (dna.arm_radius * 1.10, dna.arm_radius * 1.04), f"shoulder.{suffix}")
+        add(f"elbow-above.{suffix}", (x(marks.elbow_x), 0, marks.elbow_z + arm_band), (dna.arm_radius * 1.02, dna.arm_radius * 0.96), f"upper-arm.{suffix}")
+        add(f"elbow.{suffix}", (x(marks.elbow_x), 0, marks.elbow_z), (dna.arm_radius * 0.92, dna.arm_radius * 0.88), f"elbow-above.{suffix}")
+        add(f"elbow-below.{suffix}", (x(marks.elbow_x + dna.arm_radius * 0.06), 0, marks.elbow_z - arm_band), (dna.arm_radius * 0.96, dna.arm_radius * 0.91), f"elbow.{suffix}")
+        add(f"forearm.{suffix}", (x((marks.elbow_x + marks.wrist_x) * 0.5), 0, (marks.elbow_z + marks.wrist_z) * 0.5), (dna.arm_radius * 0.91, dna.arm_radius * 0.86), f"elbow-below.{suffix}")
+        add(f"wrist-above.{suffix}", (x(marks.wrist_x), 0, marks.wrist_z + arm_band * 0.70), (dna.arm_radius * 0.78, dna.arm_radius * 0.73), f"forearm.{suffix}")
+        add(f"wrist.{suffix}", (x(marks.wrist_x), 0, marks.wrist_z), (dna.arm_radius * 0.70, dna.arm_radius * 0.66), f"wrist-above.{suffix}")
+        add(f"hand.{suffix}", (x(marks.wrist_x), -dna.arm_radius * 0.12, marks.wrist_z - hand_length * 0.43), (dna.arm_radius * 1.58, dna.arm_radius * 1.30), f"wrist.{suffix}")
+        add(f"hand-tip.{suffix}", (x(marks.wrist_x), -dna.arm_radius * 0.20, marks.hand_tip_z), (dna.arm_radius * 1.22, dna.arm_radius * 1.00), f"hand.{suffix}")
 
     leg_band = max((marks.hips_z - marks.ankle_z) * 0.055, dna.calf_radius * 0.70)
     for suffix, sign in (("L", -1.0), ("R", 1.0)):
         x = sign * marks.hip_x
-        add(
-            f"hip.{suffix}",
-            (x, 0, marks.hips_z - leg_band * 0.10),
-            (dna.thigh_radius * 1.58, dna.thigh_radius * 1.44),
-            "hips",
-        )
-        add(
-            f"thigh-upper.{suffix}",
-            (x, 0, marks.hips_z - leg_band),
-            (dna.thigh_radius * 1.35, dna.thigh_radius * 1.25),
-            f"hip.{suffix}",
-        )
-        add(
-            f"thigh.{suffix}",
-            (x, 0, (marks.hips_z + marks.knee_z) * 0.5),
-            (dna.thigh_radius * 1.14, dna.thigh_radius * 1.08),
-            f"thigh-upper.{suffix}",
-        )
-        add(
-            f"knee-above.{suffix}",
-            (x, 0, marks.knee_z + leg_band),
-            (dna.thigh_radius * 1.04, dna.thigh_radius * 0.98),
-            f"thigh.{suffix}",
-        )
-        add(
-            f"knee.{suffix}",
-            (x, 0, marks.knee_z),
-            (max(dna.calf_radius * 1.10, dna.thigh_radius * 0.88), max(dna.calf_radius * 1.02, dna.thigh_radius * 0.84)),
-            f"knee-above.{suffix}",
-        )
-        add(
-            f"knee-below.{suffix}",
-            (x, 0, marks.knee_z - leg_band),
-            (dna.calf_radius * 1.12, dna.calf_radius * 1.06),
-            f"knee.{suffix}",
-        )
-        add(
-            f"calf.{suffix}",
-            (x, 0, (marks.knee_z + marks.ankle_z) * 0.5),
-            (dna.calf_radius * 1.08, dna.calf_radius * 1.02),
-            f"knee-below.{suffix}",
-        )
-        add(
-            f"ankle-above.{suffix}",
-            (x, 0, marks.ankle_z + leg_band * 0.72),
-            (dna.calf_radius * 0.84, dna.calf_radius * 0.79),
-            f"calf.{suffix}",
-        )
-        add(
-            f"ankle.{suffix}",
-            (x, 0, marks.ankle_z),
-            (dna.calf_radius * 0.72, dna.calf_radius * 0.68),
-            f"ankle-above.{suffix}",
-        )
-        add(
-            f"heel.{suffix}",
-            (x, -dna.foot_length * 0.04, dna.foot_height * 0.76),
-            (dna.foot_width * 0.46, dna.foot_height * 0.54),
-            f"ankle.{suffix}",
-        )
-        add(
-            f"ball.{suffix}",
-            (x, -dna.foot_length * 0.40, dna.foot_height * 0.72),
-            (dna.foot_width * 0.54, dna.foot_height * 0.50),
-            f"heel.{suffix}",
-        )
-        add(
-            f"toe.{suffix}",
-            (x, marks.toe_y, dna.foot_height * 0.70),
-            (dna.foot_width * 0.48, dna.foot_height * 0.42),
-            f"ball.{suffix}",
-        )
-        add(
-            f"toe-tip.{suffix}",
-            (x, marks.toe_y - dna.foot_length * 0.08, dna.foot_height * 0.70),
-            (dna.foot_width * 0.18, dna.foot_height * 0.18),
-            f"toe.{suffix}",
-        )
+        add(f"hip.{suffix}", (x, 0, marks.hips_z - leg_band * 0.10), (dna.thigh_radius * 1.58, dna.thigh_radius * 1.44), "hips")
+        add(f"thigh-upper.{suffix}", (x, 0, marks.hips_z - leg_band), (dna.thigh_radius * 1.35, dna.thigh_radius * 1.25), f"hip.{suffix}")
+        add(f"thigh.{suffix}", (x, 0, (marks.hips_z + marks.knee_z) * 0.5), (dna.thigh_radius * 1.14, dna.thigh_radius * 1.08), f"thigh-upper.{suffix}")
+        add(f"knee-above.{suffix}", (x, 0, marks.knee_z + leg_band), (dna.thigh_radius * 1.04, dna.thigh_radius * 0.98), f"thigh.{suffix}")
+        add(f"knee.{suffix}", (x, 0, marks.knee_z), (max(dna.calf_radius * 1.10, dna.thigh_radius * 0.88), max(dna.calf_radius * 1.02, dna.thigh_radius * 0.84)), f"knee-above.{suffix}")
+        add(f"knee-below.{suffix}", (x, 0, marks.knee_z - leg_band), (dna.calf_radius * 1.12, dna.calf_radius * 1.06), f"knee.{suffix}")
+        add(f"calf.{suffix}", (x, 0, (marks.knee_z + marks.ankle_z) * 0.5), (dna.calf_radius * 1.08, dna.calf_radius * 1.02), f"knee-below.{suffix}")
+        add(f"ankle-above.{suffix}", (x, 0, marks.ankle_z + leg_band * 0.72), (dna.calf_radius * 0.84, dna.calf_radius * 0.79), f"calf.{suffix}")
+        add(f"ankle.{suffix}", (x, 0, marks.ankle_z), (dna.calf_radius * 0.72, dna.calf_radius * 0.68), f"ankle-above.{suffix}")
+        add(f"heel.{suffix}", (x, -dna.foot_length * 0.04, dna.foot_height * 0.76), (dna.foot_width * 0.46, dna.foot_height * 0.54), f"ankle.{suffix}")
+        add(f"ball.{suffix}", (x, -dna.foot_length * 0.40, dna.foot_height * 0.72), (dna.foot_width * 0.54, dna.foot_height * 0.50), f"heel.{suffix}")
+        add(f"toe.{suffix}", (x, marks.toe_y, dna.foot_height * 0.70), (dna.foot_width * 0.48, dna.foot_height * 0.42), f"ball.{suffix}")
+        add(f"toe-tip.{suffix}", (x, marks.toe_y - dna.foot_length * 0.08, dna.foot_height * 0.70), (dna.foot_width * 0.18, dna.foot_height * 0.18), f"toe.{suffix}")
 
     validate_body_graph(nodes, edges)
     return tuple(nodes), tuple(edges)
@@ -324,7 +170,16 @@ def candidate_bones_for_point(point, dna, part_name: str = "Body_Core") -> tuple
         return ("chest", f"upper_arm.{side}", f"forearm.{side}", f"hand.{side}")
     if z < marks.hips_z + dna.thigh_radius * 0.55:
         side = "L" if x < 0 else "R"
-        return ("hips", f"thigh.{side}", f"shin.{side}", f"foot.{side}")
+        thigh = f"thigh.{side}"
+        shin = f"shin.{side}"
+        foot = f"foot.{side}"
+        if z >= marks.knee_z + dna.thigh_radius * 0.35:
+            return ("hips", thigh)
+        if z >= marks.knee_z - dna.calf_radius * 0.55:
+            return (thigh, shin)
+        if z >= marks.ankle_z + dna.calf_radius * 0.45:
+            return (shin, thigh)
+        return (shin, foot)
     return ("hips", "spine", "chest", "neck")
 
 
@@ -342,13 +197,7 @@ def _segment_distance(point, start, end) -> float:
     return sqrt(dx * dx + dy * dy + dz * dz)
 
 
-def normalized_weights_for_point(
-    point,
-    dna,
-    joints: Mapping[str, object],
-    part_name: str = "Body_Core",
-    max_influences: int = 3,
-) -> dict[str, float]:
+def normalized_weights_for_point(point, dna, joints: Mapping[str, object], part_name: str = "Body_Core", max_influences: int = 3) -> dict[str, float]:
     candidates = candidate_bones_for_point(point, dna, part_name)
     scored: list[tuple[float, str]] = []
     for name in candidates:
