@@ -14,6 +14,7 @@
     "reference-analysis:test": "pnpm --filter @low-poly-character-studio/api exec tsx ../../apps/style-studio/src/reference-analysis.test.ts",
     "model-runner:test": "pnpm --filter @low-poly-character-studio/api test:model-runner",
     "rig-runner:test": "pnpm --filter @low-poly-character-studio/api test:rig-runner",
+    "blender:setup": "bash scripts/setup-blender.sh",
     "rig-review": "bash scripts/render-rig-review.sh",
     "style-dna:test": "python3 packages/asset-compiler/blender/tests/test_style_dna.py",
     "dev": "bash scripts/dev.sh",
