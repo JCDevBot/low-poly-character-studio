@@ -11,6 +11,7 @@ sys.path.insert(0, str(BLENDER_DIR))
 from generator.body_topology import (
     TOPOLOGY_SCHEMA,
     build_body_graph,
+    candidate_bones_for_point,
     normalized_weights_for_point,
     resolve_body_landmarks,
     validate_body_graph,
@@ -115,6 +116,30 @@ def main() -> None:
         by_name,
     )
     assert {"chest", "neck"}.issubset(neck_weights)
+
+    shoulder_point = (-marks.shoulder_x * 0.92, 0, marks.shoulder_z)
+    shoulder_candidates = candidate_bones_for_point(shoulder_point, compact)
+    assert "chest" in shoulder_candidates
+    assert "upper_arm.L" in shoulder_candidates
+    shoulder_weights = normalized_weights_for_point(
+        shoulder_point,
+        compact,
+        by_name,
+        max_influences=3,
+    )
+    assert_blend(shoulder_weights, {"chest", "upper_arm.L"})
+
+    hip_point = (-marks.hip_x, 0, marks.hips_z - compact.thigh_radius * 0.20)
+    hip_candidates = candidate_bones_for_point(hip_point, compact)
+    assert "hips" in hip_candidates
+    assert "thigh.L" in hip_candidates
+    hip_weights = normalized_weights_for_point(
+        hip_point,
+        compact,
+        by_name,
+        max_influences=3,
+    )
+    assert_blend(hip_weights, {"hips", "thigh.L"})
 
     invalid = list(compact_joints)
     invalid.pop()
