@@ -51,6 +51,12 @@ try {
   assert.ok(completed.stages.rig.artifacts.includes('artifacts/rig/humanoid-rigged.glb'))
   assert.equal(invocation?.command, 'blender')
   assert.equal(invocation?.cwd, '/project')
+  assert.deepEqual(invocation?.args.slice(0, 4), [
+    '--background',
+    '--factory-startup',
+    '--python-exit-code',
+    '1'
+  ])
   assert.ok(invocation?.args.includes('--input-blend'))
   assert.ok(invocation?.args.includes('--style-dna'))
 
