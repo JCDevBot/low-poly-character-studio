@@ -209,6 +209,23 @@ def _smoothstep(value: float) -> float:
 def normalized_weights_for_point(point, dna, joints: Mapping[str, object], part_name: str = "Body_Core", max_influences: int = 3) -> dict[str, float]:
     x, _, z = point
     marks = resolve_body_landmarks(dna)
+
+    # Boxer briefs are a pelvis garment, not independent shorts legs. Keep the
+    # waistband and central panel rigidly pelvis-dominant, with only a small
+    # lower/outer thigh contribution to avoid tearing during hip flexion.
+    if part_name == "Clothing_Boxers":
+        lower_progress = _smoothstep(
+            (marks.hips_z - z) / max(dna.head_height * 0.13, 1e-6)
+        )
+        lateral_progress = _smoothstep(
+            (abs(x) - dna.hip_width * 0.18) / max(dna.hip_width * 0.34, 1e-6)
+        )
+        thigh_weight = min(0.16, 0.16 * lower_progress * lateral_progress)
+        if thigh_weight <= 1e-6:
+            return {"hips": 1.0}
+        side = "L" if x < 0 else "R"
+        return {"hips": 1.0 - thigh_weight, f"thigh.{side}": thigh_weight}
+
     if part_name == "Body_Core" and z <= marks.ankle_z + dna.calf_radius * 0.18:
         side = "L" if x < 0 else "R"
         return {f"foot.{side}": 1.0}
