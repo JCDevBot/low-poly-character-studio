@@ -106,9 +106,9 @@ def _create_a_frame_shirt(dna, material) -> bpy.types.Object:
     strap_top = marks.shoulder_z + dna.head_height * 0.020
     thickness = max(0.006, dna.torso_depth * 0.040)
 
-    bottom_half = torso_width * 0.44
-    underarm_half = torso_width * 0.50
-    shoulder_outer = torso_width * 0.37
+    bottom_half = torso_width * 0.40
+    underarm_half = torso_width * 0.47
+    shoulder_outer = torso_width * 0.36
     neck_outer = torso_width * 0.20
     neck_inner = torso_width * 0.135
 
@@ -123,8 +123,6 @@ def _create_a_frame_shirt(dna, material) -> bpy.types.Object:
         t = max(0.0, min(1.0, (z - bottom_z) / span))
         return dna.torso_depth * (0.47 + 0.025 * min(1.0, t * 1.8))
 
-    # Clockwise concave front outline. The central notch is actual geometry,
-    # rather than white pieces laid over a rectangular chest plate.
     front_profile = (
         (-bottom_half, front_y(bottom_z), bottom_z),
         (bottom_half, front_y(bottom_z), bottom_z),
@@ -157,22 +155,23 @@ def _create_a_frame_shirt(dna, material) -> bpy.types.Object:
     _append_extruded_profile(vertices, faces, front_profile, thickness)
     _append_extruded_profile(vertices, faces, back_profile, thickness)
 
-    # Short side bridges keep the lower garment coherent while preserving the
-    # open arm silhouette required by an A-frame undershirt.
-    bridge_top = bottom_z + (underarm_z - bottom_z) * 0.42
-    bridge_height = max(dna.head_height * 0.08, bridge_top - bottom_z)
+    # Full lower side seams make the garment read as a fitted shirt in profile;
+    # the arm opening remains above underarm_z.
+    bridge_height = max(dna.head_height * 0.10, underarm_z - bottom_z)
     bridge_z = bottom_z + bridge_height / 2
-    bridge_depth = dna.torso_depth * 0.94
+    bridge_depth = dna.torso_depth * 0.96
+    bridge_x = (bottom_half + underarm_half) * 0.5
+    bridge_width = max(thickness, (underarm_half - bottom_half) * 0.90)
     for sign in (-1.0, 1.0):
         _append_box(
             vertices,
             faces,
-            (sign * bottom_half, 0.0, bridge_z),
-            (thickness, bridge_depth, bridge_height),
+            (sign * bridge_x, 0.0, bridge_z),
+            (bridge_width, bridge_depth, bridge_height),
         )
 
     obj = _mesh_object("Clothing_AFrameShirt", vertices, faces, material)
-    obj["depthProfile"] = "fitted-concave-vest/v2"
+    obj["depthProfile"] = "fitted-concave-vest/v3"
     return obj
 
 
