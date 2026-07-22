@@ -231,18 +231,36 @@ def normalized_weights_for_point(point, dna, joints: Mapping[str, object], part_
         return {f"foot.{side}": 1.0}
 
     if part_name == "Body_Core":
-        shoulder_half_height = dna.arm_radius * 1.65
-        shoulder_inner_x = dna.torso_width * 0.28
-        shoulder_outer_x = marks.shoulder_x + dna.arm_radius * 0.65
+        shoulder_lower = marks.shoulder_z - dna.arm_radius * 1.55
+        shoulder_upper = marks.shoulder_z + dna.arm_radius * 1.05
+        shoulder_inner_x = dna.torso_width * 0.27
+        shoulder_outer_x = marks.shoulder_x + dna.arm_radius * 0.72
         if (
-            abs(z - marks.shoulder_z) <= shoulder_half_height
+            shoulder_lower <= z <= shoulder_upper
             and shoulder_inner_x <= abs(x) <= shoulder_outer_x
         ):
             side = "L" if x < 0 else "R"
-            lateral = (abs(x) - shoulder_inner_x) / max(shoulder_outer_x - shoulder_inner_x, 1e-6)
-            vertical = 1.0 - abs(z - marks.shoulder_z) / shoulder_half_height
-            arm_weight = 0.12 + _smoothstep(lateral) * (0.50 + 0.10 * _smoothstep(vertical))
-            arm_weight = min(0.68, max(0.12, arm_weight))
+            lateral = _smoothstep(
+                (abs(x) - shoulder_inner_x)
+                / max(shoulder_outer_x - shoulder_inner_x, 1e-6)
+            )
+            vertical = (z - shoulder_lower) / max(shoulder_upper - shoulder_lower, 1e-6)
+            lower_armpit = 1.0 - _smoothstep(vertical / 0.46)
+            upper_cap = _smoothstep((vertical - 0.48) / 0.52)
+            socket_band = max(0.0, 1.0 - lower_armpit - upper_cap)
+
+            # Lower armpit vertices remain chest-dominant to preserve the
+            # torso wall. The upper cap follows the arm, while the narrow
+            # middle band provides a bounded transition between them.
+            lower_weight = 0.04 + 0.18 * lateral
+            socket_weight = 0.20 + 0.42 * lateral
+            cap_weight = 0.46 + 0.40 * lateral
+            arm_weight = (
+                lower_armpit * lower_weight
+                + socket_band * socket_weight
+                + upper_cap * cap_weight
+            )
+            arm_weight = min(0.86, max(0.04, arm_weight))
             return {"chest": 1.0 - arm_weight, f"upper_arm.{side}": arm_weight}
 
         hip_half_height = dna.thigh_radius * 1.15
