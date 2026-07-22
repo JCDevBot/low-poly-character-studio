@@ -46,12 +46,13 @@ def main() -> None:
     compact_nodes, compact_edges = build_body_graph(compact)
     tall_nodes, _ = build_body_graph(tall)
     validate_body_graph(compact_nodes, compact_edges)
-    assert len(compact_nodes) >= 50
+    assert len(compact_nodes) >= 52
     assert len(compact_edges) == len(compact_nodes) - 1
     assert compact_nodes == build_body_graph(compact)[0]
     assert compact_nodes != tall_nodes
     node_names = {node.name for node in compact_nodes}
     for required in (
+        "upper-chest",
         "neck-top",
         "elbow-above.L",
         "elbow.L",
@@ -66,6 +67,10 @@ def main() -> None:
         assert required in node_names
 
     marks = resolve_body_landmarks(compact)
+    assert compact.head_bottom_z - marks.shoulder_z < compact.head_height * 0.28
+    assert marks.neck_top_z - compact.neck_z < compact.head_height * 0.18
+    assert compact.foot_width > compact.calf_radius * 3
+
     assert_blend(
         normalized_weights_for_point(
             (-marks.elbow_x, 0, marks.elbow_z),
