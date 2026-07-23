@@ -72,6 +72,9 @@ jobs:
       - name: Test humanoid rig contracts
         run: python3 packages/asset-compiler/blender/tests/test_rig_contract.py
 
+      - name: Test localized underarm web weights
+        run: python3 packages/asset-compiler/blender/tests/test_underarm_web_weights.py
+
       - name: Compile Python sources
         run: python3 -m compileall -q packages/asset-compiler/blender/generator packages/asset-compiler/blender/scripts
 
