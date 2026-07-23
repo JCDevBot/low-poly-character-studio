@@ -25,10 +25,26 @@ POSED_VIEWS = (
 WORLD_X = (1.0, 0.0, 0.0)
 WORLD_Y = (0.0, 1.0, 0.0)
 
+# Normal shoulder elevation shares motion between the shoulder-girdle parent and
+# upper arm. The pure upper-arm version remains available as an explicit stress
+# diagnostic rather than the acceptance pose.
+SHOULDER_45 = {
+    "shoulder.L": (WORLD_Y, math.radians(-12.0)),
+    "upper_arm.L": (WORLD_Y, math.radians(-33.0)),
+}
+SHOULDER_90 = {
+    "shoulder.L": (WORLD_Y, math.radians(-24.0)),
+    "upper_arm.L": (WORLD_Y, math.radians(-66.0)),
+}
+SHOULDER_STRESS = {
+    "upper_arm.L": (WORLD_Y, math.radians(-45.0)),
+}
+
 # Pose values are armature-space axis/angle pairs. Converting those axes into
 # each bone's rest basis makes the review independent of implicit bone roll.
 REVIEW_POSE = {
-    "upper_arm.L": (WORLD_Y, math.radians(-42.0)),
+    "shoulder.L": (WORLD_Y, math.radians(-11.0)),
+    "upper_arm.L": (WORLD_Y, math.radians(-31.0)),
     "forearm.L": (WORLD_X, math.radians(58.0)),
     "hand.L": (WORLD_X, math.radians(18.0)),
     "thigh.L": (WORLD_X, math.radians(24.0)),
@@ -39,7 +55,9 @@ REVIEW_POSE = {
 }
 
 ISOLATED_POSES = (
-    ("isolated-shoulder-front", {"upper_arm.L": (WORLD_Y, math.radians(-45.0))}, (0.0, -1.0, 0.0)),
+    ("isolated-shoulder-front", SHOULDER_45, (0.0, -1.0, 0.0)),
+    ("isolated-shoulder-90-front", SHOULDER_90, (0.0, -1.0, 0.0)),
+    ("stress-upper-arm-shoulder-front", SHOULDER_STRESS, (0.0, -1.0, 0.0)),
     ("isolated-elbow-three-quarter", {"forearm.L": (WORLD_X, math.radians(62.0))}, (-1.0, -1.0, 0.0)),
     ("isolated-wrist-front", {"hand.L": (WORLD_X, math.radians(28.0))}, (0.0, -1.0, 0.0)),
     ("isolated-hip-side", {"thigh.L": (WORLD_X, math.radians(28.0))}, (-1.0, 0.0, 0.0)),
@@ -49,7 +67,9 @@ ISOLATED_POSES = (
 )
 
 FOCUSED_DIAGNOSTICS = {
-    "isolated-shoulder-front": ("isolated-shoulder-closeup-front", "upper_arm.L", 0.30),
+    "isolated-shoulder-front": ("isolated-shoulder-closeup-front", "shoulder.L", 0.30),
+    "isolated-shoulder-90-front": ("isolated-shoulder-90-closeup-front", "shoulder.L", 0.30),
+    "stress-upper-arm-shoulder-front": ("stress-upper-arm-shoulder-closeup-front", "shoulder.L", 0.30),
     "isolated-hip-side": ("isolated-hip-closeup-side", "thigh.L", 0.32),
 }
 
@@ -139,17 +159,8 @@ def evaluated_bounds():
         points.extend(evaluated.matrix_world @ Vector(corner) for corner in evaluated.bound_box)
     if not points:
         raise ValueError("Rig review found no renderable mesh geometry")
-
-    minimum = Vector((
-        min(point.x for point in points),
-        min(point.y for point in points),
-        min(point.z for point in points),
-    ))
-    maximum = Vector((
-        max(point.x for point in points),
-        max(point.y for point in points),
-        max(point.z for point in points),
-    ))
+    minimum = Vector((min(p.x for p in points), min(p.y for p in points), min(p.z for p in points)))
+    maximum = Vector((max(p.x for p in points), max(p.y for p in points), max(p.z for p in points)))
     return minimum, maximum
 
 
@@ -193,26 +204,16 @@ def render_focused_view(scene, camera, output_dir, name, direction, center, orth
 
 
 def render_wireframe(scene, camera, output_dir):
-    """Render evaluated mesh edges as real geometry so CI output is unambiguous."""
     shading = scene.display.shading
-    originals = [
-        obj
-        for obj in bpy.context.scene.objects
-        if obj.type == "MESH" and not obj.hide_render
-    ]
+    originals = [obj for obj in bpy.context.scene.objects if obj.type == "MESH" and not obj.hide_render]
     previous_hidden = [(obj, obj.hide_render) for obj in originals]
-    previous_shading = {
-        "show_shadows": shading.show_shadows,
-        "show_cavity": shading.show_cavity,
-        "color_type": shading.color_type,
-    }
+    previous_shading = (shading.show_shadows, shading.show_cavity, shading.color_type)
     depsgraph = bpy.context.evaluated_depsgraph_get()
     minimum, maximum = evaluated_bounds()
     thickness = max(0.0008, (maximum.z - minimum.z) * 0.0011)
     wire_material = bpy.data.materials.new("RigReviewWireMaterial")
     wire_material.diffuse_color = (0.78, 0.80, 0.84, 1.0)
     wire_objects = []
-
     try:
         for original in originals:
             evaluated = original.evaluated_get(depsgraph)
@@ -228,20 +229,13 @@ def render_wireframe(scene, camera, output_dir):
             modifier.use_even_offset = True
             wire_objects.append(wire_object)
             original.hide_render = True
-
         shading.show_shadows = False
         shading.show_cavity = False
         shading.color_type = "MATERIAL"
-        return render_view(
-            scene,
-            camera,
-            output_dir,
-            "neutral-wireframe-front",
-            (0.0, -1.0, 0.0),
-        )
+        return render_view(scene, camera, output_dir, "neutral-wireframe-front", (0.0, -1.0, 0.0))
     finally:
-        for original, hide_render in previous_hidden:
-            original.hide_render = hide_render
+        for original, hidden in previous_hidden:
+            original.hide_render = hidden
         for wire_object in wire_objects:
             mesh_data = wire_object.data
             bpy.data.objects.remove(wire_object, do_unlink=True)
@@ -249,16 +243,11 @@ def render_wireframe(scene, camera, output_dir):
                 bpy.data.meshes.remove(mesh_data)
         if wire_material.users == 0:
             bpy.data.materials.remove(wire_material)
-        shading.show_shadows = previous_shading["show_shadows"]
-        shading.show_cavity = previous_shading["show_cavity"]
-        shading.color_type = previous_shading["color_type"]
+        shading.show_shadows, shading.show_cavity, shading.color_type = previous_shading
 
 
 def _pose_manifest(rotations):
-    return {
-        bone: {"axis": list(axis), "angleRadians": angle}
-        for bone, (axis, angle) in rotations.items()
-    }
+    return {bone: {"axis": list(axis), "angleRadians": angle} for bone, (axis, angle) in rotations.items()}
 
 
 def main():
@@ -297,17 +286,7 @@ def main():
                 raise ValueError(f"Focused rig review requires pose bone {bone_name}")
             center = armature.matrix_world @ pose_bone.head
             ortho_scale = max(character_height * scale_ratio, 0.22)
-            images.append(
-                render_focused_view(
-                    scene,
-                    camera,
-                    args.output_dir,
-                    focused_name,
-                    direction,
-                    center,
-                    ortho_scale,
-                )
-            )
+            images.append(render_focused_view(scene, camera, args.output_dir, focused_name, direction, center, ortho_scale))
             focused_manifest[focused_name] = {
                 "sourcePose": name,
                 "focusBone": bone_name,
@@ -316,12 +295,14 @@ def main():
 
     set_pose(armature, {})
     manifest = {
-        "schema": "rig-review-render/v4",
+        "schema": "rig-review-render/v5",
         "label": args.label,
         "inputBlend": args.input_blend.name,
         "blenderVersion": bpy.app.version_string,
         "rigId": armature.get("rigId", armature.name),
         "poseSpace": "armature-axis-angle",
+        "shoulderAcceptancePose": "isolated-shoulder-front",
+        "shoulderStressDiagnostic": "stress-upper-arm-shoulder-front",
         "reviewPose": _pose_manifest(REVIEW_POSE),
         "isolatedPoses": isolated_manifest,
         "focusedDiagnostics": focused_manifest,
