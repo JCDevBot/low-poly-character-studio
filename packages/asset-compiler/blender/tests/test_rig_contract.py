@@ -47,7 +47,7 @@ def main() -> None:
     compact_nodes, compact_edges = build_body_graph(compact)
     tall_nodes, _ = build_body_graph(tall)
     validate_body_graph(compact_nodes, compact_edges)
-    assert len(compact_nodes) >= 50
+    assert len(compact_nodes) >= 52
     assert len(compact_edges) == len(compact_nodes) - 1
     assert compact_nodes == build_body_graph(compact)[0]
     assert compact_nodes != tall_nodes
@@ -57,6 +57,8 @@ def main() -> None:
         "neck-top",
         "lower-armpit-support.L",
         "lower-armpit-support.R",
+        "socket-floor-support.L",
+        "socket-floor-support.R",
         "upper-socket-support.L",
         "upper-socket-support.R",
         "elbow-above.L",
@@ -76,14 +78,16 @@ def main() -> None:
     nodes_by_name = {node.name: node for node in compact_nodes}
     left_clavicle = nodes_by_name["clavicle.L"]
     lower_support = nodes_by_name["lower-armpit-support.L"]
+    floor_support = nodes_by_name["socket-floor-support.L"]
     upper_support = nodes_by_name["upper-socket-support.L"]
     left_shoulder = nodes_by_name["shoulder.L"]
-    assert abs(left_clavicle.point[0]) < abs(lower_support.point[0]) < abs(upper_support.point[0]) < abs(left_shoulder.point[0])
-    assert lower_support.point[2] < upper_support.point[2] < left_shoulder.point[2]
-    assert lower_support.radius[0] > upper_support.radius[0] > left_shoulder.radius[0]
+    assert abs(left_clavicle.point[0]) < abs(lower_support.point[0]) < abs(floor_support.point[0]) < abs(upper_support.point[0]) < abs(left_shoulder.point[0])
+    assert lower_support.point[2] < floor_support.point[2] < upper_support.point[2] < left_shoulder.point[2]
+    assert lower_support.radius[0] > floor_support.radius[0] > upper_support.radius[0] > left_shoulder.radius[0]
     node_index = {node.name: index for index, node in enumerate(compact_nodes)}
     assert (node_index["clavicle.L"], node_index["lower-armpit-support.L"]) in compact_edges
-    assert (node_index["lower-armpit-support.L"], node_index["upper-socket-support.L"]) in compact_edges
+    assert (node_index["lower-armpit-support.L"], node_index["socket-floor-support.L"]) in compact_edges
+    assert (node_index["socket-floor-support.L"], node_index["upper-socket-support.L"]) in compact_edges
     assert (node_index["upper-socket-support.L"], node_index["shoulder.L"]) in compact_edges
 
     marks = resolve_body_landmarks(compact)
