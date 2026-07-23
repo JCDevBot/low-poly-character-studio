@@ -95,25 +95,35 @@ def build_body_graph(dna) -> tuple[tuple[BodyNode, ...], tuple[tuple[int, int], 
     for suffix, sign in (("L", -1.0), ("R", 1.0)):
         x = lambda value: sign * value
         add(f"clavicle.{suffix}", (x(dna.torso_width * 0.30), 0, marks.shoulder_z + dna.arm_radius * 0.06), (dna.arm_radius * 1.38, dna.arm_radius * 1.25), "upper-chest")
-        add(
-            f"lower-armpit-support.{suffix}",
-            (x(marks.shoulder_x - dna.arm_radius * 0.62), 0, marks.shoulder_z - dna.arm_radius * 0.78),
-            (dna.arm_radius * 1.62, dna.arm_radius * 1.46),
-            f"clavicle.{suffix}",
-        )
-        add(
-            f"socket-floor-support.{suffix}",
-            (x(marks.shoulder_x - dna.arm_radius * 0.32), 0, marks.shoulder_z - dna.arm_radius * 0.44),
-            (dna.arm_radius * 1.56, dna.arm_radius * 1.42),
-            f"lower-armpit-support.{suffix}",
-        )
-        add(
-            f"upper-socket-support.{suffix}",
-            (x(marks.shoulder_x - dna.arm_radius * 0.12), 0, marks.shoulder_z - dna.arm_radius * 0.16),
-            (dna.arm_radius * 1.46, dna.arm_radius * 1.34),
-            f"socket-floor-support.{suffix}",
-        )
+        add(f"lower-armpit-support.{suffix}", (x(marks.shoulder_x - dna.arm_radius * 0.62), 0, marks.shoulder_z - dna.arm_radius * 0.78), (dna.arm_radius * 1.62, dna.arm_radius * 1.46), f"clavicle.{suffix}")
+        add(f"socket-floor-support.{suffix}", (x(marks.shoulder_x - dna.arm_radius * 0.32), 0, marks.shoulder_z - dna.arm_radius * 0.44), (dna.arm_radius * 1.56, dna.arm_radius * 1.42), f"lower-armpit-support.{suffix}")
+        add(f"upper-socket-support.{suffix}", (x(marks.shoulder_x - dna.arm_radius * 0.12), 0, marks.shoulder_z - dna.arm_radius * 0.16), (dna.arm_radius * 1.46, dna.arm_radius * 1.34), f"socket-floor-support.{suffix}")
         add(f"shoulder.{suffix}", (x(marks.shoulder_x), 0, marks.shoulder_z), (dna.arm_radius * 1.26, dna.arm_radius * 1.20), f"upper-socket-support.{suffix}")
+
+        # A second torso-rooted branch creates an overlapping underarm web before
+        # voxel union. Unlike further serial guide inflation, this preserves a
+        # chest-anchored inner wall while carrying material toward the moving
+        # upper socket, preventing the empty triangular socket floor seen in
+        # abduction reviews.
+        add(
+            f"underarm-web-inner.{suffix}",
+            (x(marks.shoulder_x - dna.arm_radius * 1.02), 0, marks.shoulder_z - dna.arm_radius * 0.80),
+            (dna.arm_radius * 1.30, dna.arm_radius * 1.18),
+            "upper-chest",
+        )
+        add(
+            f"underarm-web-mid.{suffix}",
+            (x(marks.shoulder_x - dna.arm_radius * 0.62), 0, marks.shoulder_z - dna.arm_radius * 0.58),
+            (dna.arm_radius * 1.42, dna.arm_radius * 1.28),
+            f"underarm-web-inner.{suffix}",
+        )
+        add(
+            f"underarm-web-outer.{suffix}",
+            (x(marks.shoulder_x - dna.arm_radius * 0.25), 0, marks.shoulder_z - dna.arm_radius * 0.31),
+            (dna.arm_radius * 1.34, dna.arm_radius * 1.22),
+            f"underarm-web-mid.{suffix}",
+        )
+
         add(f"upper-arm.{suffix}", (x(marks.shoulder_x + dna.arm_radius * 0.10), 0, marks.shoulder_z - dna.arm_length * 0.22), (dna.arm_radius * 1.10, dna.arm_radius * 1.04), f"shoulder.{suffix}")
         add(f"elbow-above.{suffix}", (x(marks.elbow_x), 0, marks.elbow_z + arm_band), (dna.arm_radius * 1.02, dna.arm_radius * 0.96), f"upper-arm.{suffix}")
         add(f"elbow.{suffix}", (x(marks.elbow_x), 0, marks.elbow_z), (dna.arm_radius * 0.92, dna.arm_radius * 0.88), f"elbow-above.{suffix}")
@@ -136,12 +146,7 @@ def build_body_graph(dna) -> tuple[tuple[BodyNode, ...], tuple[tuple[int, int], 
         add(f"calf.{suffix}", (x, 0, (marks.knee_z + marks.ankle_z) * 0.5), (dna.calf_radius * 1.08, dna.calf_radius * 1.02), f"knee-below.{suffix}")
         add(f"ankle-above.{suffix}", (x, 0, marks.ankle_z + leg_band * 0.72), (dna.calf_radius * 0.84, dna.calf_radius * 0.79), f"calf.{suffix}")
         add(f"ankle.{suffix}", (x, 0, marks.ankle_z), (dna.calf_radius * 0.72, dna.calf_radius * 0.68), f"ankle-above.{suffix}")
-        add(
-            f"foot-core.{suffix}",
-            (x, -dna.foot_length * 0.16, dna.foot_height * 0.90),
-            (dna.foot_width * 0.34, dna.foot_height * 0.40),
-            f"ankle.{suffix}",
-        )
+        add(f"foot-core.{suffix}", (x, -dna.foot_length * 0.16, dna.foot_height * 0.90), (dna.foot_width * 0.34, dna.foot_height * 0.40), f"ankle.{suffix}")
 
     validate_body_graph(nodes, edges)
     return tuple(nodes), tuple(edges)
