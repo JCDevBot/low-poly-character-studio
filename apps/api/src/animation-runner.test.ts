@@ -37,7 +37,7 @@ try {
   assert.ok(completed.stages.animate.artifacts.includes('artifacts/animate/animation-metadata.json'))
   assert.equal(invocation?.command, 'blender')
   assert.equal(invocation?.cwd, '/project')
-  assert.ok(invocation?.args.includes('build_humanoid_animation_job.py'))
+  assert.ok(invocation?.args.some(argument => argument.endsWith('/build_humanoid_animation_job.py')))
   assert.ok(invocation?.args.includes('--input-blend'))
 
   const unrigged = await jobs.create({ modelTypeId: 'humanoid/chibi-v1' })
