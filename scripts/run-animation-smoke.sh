@@ -45,17 +45,27 @@ run_fixture() {
 
   python3 - "$animate_dir/animation-metadata.json" "$animate_dir/humanoid-animated.glb" <<'PY'
 import json
+import struct
 import sys
 from pathlib import Path
 
 metadata_path = Path(sys.argv[1])
 glb_path = Path(sys.argv[2])
+expected = ["a-pose", "idle", "walk", "wave"]
 metadata = json.loads(metadata_path.read_text(encoding="utf-8"))
 assert metadata["schema"] == "humanoid-animation-pack/v1"
 assert metadata["rigId"] == "humanoid-basic-v1"
-assert [clip["name"] for clip in metadata["clips"]] == ["a-pose", "idle", "walk", "wave"]
+assert [clip["name"] for clip in metadata["clips"]] == expected
 assert [clip["name"] for clip in metadata["clips"] if clip["loop"]] == ["idle", "walk"]
 assert glb_path.is_file() and glb_path.stat().st_size > 0
+
+raw = glb_path.read_bytes()
+magic, version, total_length = struct.unpack_from("<4sII", raw, 0)
+assert magic == b"glTF" and version == 2 and total_length == len(raw)
+chunk_length, chunk_type = struct.unpack_from("<II", raw, 12)
+assert chunk_type == 0x4E4F534A
+payload = json.loads(raw[20:20 + chunk_length].decode("utf-8").rstrip(" \t\r\n\x00"))
+assert [animation.get("name") for animation in payload.get("animations", [])] == expected
 PY
 }
 
