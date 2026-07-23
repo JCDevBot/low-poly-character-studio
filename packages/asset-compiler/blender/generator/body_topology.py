@@ -98,22 +98,22 @@ def build_body_graph(dna) -> tuple[tuple[BodyNode, ...], tuple[tuple[int, int], 
         add(
             f"lower-armpit-support.{suffix}",
             (x(marks.shoulder_x - dna.arm_radius * 0.62), 0, marks.shoulder_z - dna.arm_radius * 0.78),
-            (dna.arm_radius * 1.48, dna.arm_radius * 1.34),
+            (dna.arm_radius * 1.62, dna.arm_radius * 1.46),
             f"clavicle.{suffix}",
         )
         add(
             f"socket-floor-support.{suffix}",
-            (x(marks.shoulder_x - dna.arm_radius * 0.36), 0, marks.shoulder_z - dna.arm_radius * 0.48),
-            (dna.arm_radius * 1.46, dna.arm_radius * 1.32),
+            (x(marks.shoulder_x - dna.arm_radius * 0.32), 0, marks.shoulder_z - dna.arm_radius * 0.44),
+            (dna.arm_radius * 1.56, dna.arm_radius * 1.42),
             f"lower-armpit-support.{suffix}",
         )
         add(
             f"upper-socket-support.{suffix}",
-            (x(marks.shoulder_x - dna.arm_radius * 0.18), 0, marks.shoulder_z - dna.arm_radius * 0.20),
-            (dna.arm_radius * 1.34, dna.arm_radius * 1.24),
+            (x(marks.shoulder_x - dna.arm_radius * 0.12), 0, marks.shoulder_z - dna.arm_radius * 0.16),
+            (dna.arm_radius * 1.46, dna.arm_radius * 1.34),
             f"socket-floor-support.{suffix}",
         )
-        add(f"shoulder.{suffix}", (x(marks.shoulder_x), 0, marks.shoulder_z), (dna.arm_radius * 1.22, dna.arm_radius * 1.16), f"upper-socket-support.{suffix}")
+        add(f"shoulder.{suffix}", (x(marks.shoulder_x), 0, marks.shoulder_z), (dna.arm_radius * 1.26, dna.arm_radius * 1.20), f"upper-socket-support.{suffix}")
         add(f"upper-arm.{suffix}", (x(marks.shoulder_x + dna.arm_radius * 0.10), 0, marks.shoulder_z - dna.arm_length * 0.22), (dna.arm_radius * 1.10, dna.arm_radius * 1.04), f"shoulder.{suffix}")
         add(f"elbow-above.{suffix}", (x(marks.elbow_x), 0, marks.elbow_z + arm_band), (dna.arm_radius * 1.02, dna.arm_radius * 0.96), f"upper-arm.{suffix}")
         add(f"elbow.{suffix}", (x(marks.elbow_x), 0, marks.elbow_z), (dna.arm_radius * 0.92, dna.arm_radius * 0.88), f"elbow-above.{suffix}")
