@@ -82,7 +82,10 @@ export async function runHumanoidModelStage(options: {
     await runner(
       process.env.BLENDER_COMMAND ?? 'blender',
       [
-        '-b',
+        '--background',
+        '--factory-startup',
+        '--python-exit-code',
+        '1',
         '--python',
         path.join(options.projectRoot, 'packages/asset-compiler/blender/scripts/build_humanoid_job.py'),
         '--',
