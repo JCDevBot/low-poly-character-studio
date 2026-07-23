@@ -257,6 +257,9 @@ def normalized_weights_for_point(point, dna, joints: Mapping[str, object], part_
             socket_weight = 0.20 + 0.42 * lateral
             cap_weight = 0.46 + 0.40 * lateral
             arm_weight = lower_armpit * lower_weight + socket_band * socket_weight + upper_cap * cap_weight
+            floor_anchor = 1.0 - _smoothstep(abs(vertical - 0.41) / 0.18)
+            floor_weight = 0.08 + 0.20 * lateral
+            arm_weight = arm_weight * (1.0 - floor_anchor) + floor_weight * floor_anchor
             arm_weight = min(0.86, max(0.04, arm_weight))
             return {"chest": 1.0 - arm_weight, f"upper_arm.{side}": arm_weight}
 
