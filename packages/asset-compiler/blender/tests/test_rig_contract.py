@@ -126,12 +126,17 @@ def main() -> None:
 
     floor_x = -(marks.shoulder_x - compact.arm_radius * 0.36)
     socket_floor = normalized_weights_for_point((floor_x, 0, marks.shoulder_z - compact.arm_radius * 0.48), compact, by_name)
-    upper_socket = normalized_weights_for_point((-(marks.shoulder_x - compact.arm_radius * 0.18), 0, marks.shoulder_z - compact.arm_radius * 0.20), compact, by_name)
+    upper_socket_point = (-(marks.shoulder_x - compact.arm_radius * 0.18), 0, marks.shoulder_z - compact.arm_radius * 0.20)
+    upper_socket = normalized_weights_for_point(upper_socket_point, compact, by_name)
+    upper_socket_inner = normalized_weights_for_point((upper_socket_point[0] + compact.arm_radius * 0.42, 0, upper_socket_point[2]), compact, by_name)
     assert_blend(socket_floor, {"chest", "upper_arm.L"})
     assert_blend(upper_socket, {"chest", "upper_arm.L"})
+    assert_blend(upper_socket_inner, {"chest", "upper_arm.L"})
     assert socket_floor["chest"] >= 0.72
     assert socket_floor["upper_arm.L"] <= 0.28
-    assert upper_socket["upper_arm.L"] > socket_floor["upper_arm.L"]
+    assert upper_socket["upper_arm.L"] >= 0.46
+    assert upper_socket["upper_arm.L"] >= upper_socket_inner["upper_arm.L"] + 0.08
+    assert upper_socket["upper_arm.L"] > socket_floor["upper_arm.L"] + 0.18
 
     hip_point = (-marks.hip_x, 0, marks.hips_z - compact.thigh_radius * 0.20)
     hip_candidates = candidate_bones_for_point(hip_point, compact)
