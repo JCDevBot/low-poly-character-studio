@@ -102,10 +102,16 @@ def build_body_graph(dna) -> tuple[tuple[BodyNode, ...], tuple[tuple[int, int], 
             f"clavicle.{suffix}",
         )
         add(
+            f"socket-floor-support.{suffix}",
+            (x(marks.shoulder_x - dna.arm_radius * 0.36), 0, marks.shoulder_z - dna.arm_radius * 0.48),
+            (dna.arm_radius * 1.46, dna.arm_radius * 1.32),
+            f"lower-armpit-support.{suffix}",
+        )
+        add(
             f"upper-socket-support.{suffix}",
             (x(marks.shoulder_x - dna.arm_radius * 0.18), 0, marks.shoulder_z - dna.arm_radius * 0.20),
             (dna.arm_radius * 1.34, dna.arm_radius * 1.24),
-            f"lower-armpit-support.{suffix}",
+            f"socket-floor-support.{suffix}",
         )
         add(f"shoulder.{suffix}", (x(marks.shoulder_x), 0, marks.shoulder_z), (dna.arm_radius * 1.22, dna.arm_radius * 1.16), f"upper-socket-support.{suffix}")
         add(f"upper-arm.{suffix}", (x(marks.shoulder_x + dna.arm_radius * 0.10), 0, marks.shoulder_z - dna.arm_length * 0.22), (dna.arm_radius * 1.10, dna.arm_radius * 1.04), f"shoulder.{suffix}")
