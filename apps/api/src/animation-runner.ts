@@ -1,7 +1,28 @@
+import { readFile } from 'node:fs/promises'
 import path from 'node:path'
 import type { BuildJobManifest } from './build-jobs.js'
 import { BuildJobStore } from './build-jobs.js'
 import { runCommand, type CommandRunner } from './model-runner.js'
+
+export interface AnimationClipMetadata {
+  name: string
+  startFrame: number
+  endFrame: number
+  durationSeconds: number
+  loop: boolean
+  rootMotion: boolean
+  targetJoints: string[]
+}
+
+export interface AnimationMetadata {
+  schema: 'humanoid-animation-pack/v1'
+  packId: string
+  rigId: 'humanoid-basic-v1'
+  fps: number
+  clips: AnimationClipMetadata[]
+  jobId: string
+  modelTypeId: 'humanoid/chibi-v1'
+}
 
 function requireRigArtifacts(job: BuildJobManifest) {
   if (job.stages.rig.status !== 'completed') {
@@ -10,6 +31,28 @@ function requireRigArtifacts(job: BuildJobManifest) {
   const artifacts = new Set(job.stages.rig.artifacts)
   const required = 'artifacts/rig/humanoid-rigged.blend'
   if (!artifacts.has(required)) throw new Error(`Rig stage is missing required animation input ${required}`)
+}
+
+export async function readAnimationMetadata(options: {
+  jobId: string
+  jobs: BuildJobStore
+  buildWorkspace: string
+}): Promise<AnimationMetadata> {
+  const job = await options.jobs.get(options.jobId)
+  if (!job) throw new Error(`Build job not found: ${options.jobId}`)
+  if (job.stages.animate.status !== 'completed') {
+    throw new Error('Animate stage must be completed before animation metadata is available')
+  }
+  const artifact = 'artifacts/animate/animation-metadata.json'
+  if (!job.stages.animate.artifacts.includes(artifact)) {
+    throw new Error(`Animate stage is missing required metadata artifact ${artifact}`)
+  }
+  const metadataPath = path.join(options.buildWorkspace, job.id, artifact)
+  const metadata = JSON.parse(await readFile(metadataPath, 'utf8')) as AnimationMetadata
+  if (metadata.schema !== 'humanoid-animation-pack/v1' || !Array.isArray(metadata.clips)) {
+    throw new Error('Animation metadata does not match humanoid-animation-pack/v1')
+  }
+  return metadata
 }
 
 export async function runHumanoidAnimationStage(options: {
