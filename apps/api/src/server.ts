@@ -5,6 +5,7 @@ import path from 'node:path'
 import { BuildJobStore } from './build-jobs.js'
 import { runHumanoidModelStage } from './model-runner.js'
 import { runHumanoidRigStage } from './rig-runner.js'
+import { runHumanoidAnimationStage } from './animation-runner.js'
 
 const app = express()
 app.use(cors())
@@ -72,6 +73,13 @@ app.post('/jobs/:id/stages/model/run', async (req, res) => {
 app.post('/jobs/:id/stages/rig/run', async (req, res) => {
   try {
     const job = await runHumanoidRigStage({ jobId: req.params.id, jobs, buildWorkspace, projectRoot })
+    res.json({ ok: true, job })
+  } catch (error) { sendError(res, error, 500) }
+})
+
+app.post('/jobs/:id/stages/animate/run', async (req, res) => {
+  try {
+    const job = await runHumanoidAnimationStage({ jobId: req.params.id, jobs, buildWorkspace, projectRoot })
     res.json({ ok: true, job })
   } catch (error) { sendError(res, error, 500) }
 })
