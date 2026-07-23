@@ -7,7 +7,8 @@
     "dev": "tsx src/server.ts",
     "test:build-jobs": "tsx src/build-jobs.test.ts",
     "test:model-runner": "tsx src/model-runner.test.ts",
-    "test:rig-runner": "tsx src/rig-runner.test.ts"
+    "test:rig-runner": "tsx src/rig-runner.test.ts",
+    "test:animation-runner": "tsx src/animation-runner.test.ts"
   },
   "dependencies": {
     "cors": "^2.8.5",
