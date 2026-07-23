@@ -20,7 +20,7 @@ def main() -> None:
     joints = {joint.name: joint for joint in build_joint_spec(dna)}
     radius = dna.arm_radius
 
-    assert UNDERARM_WEB_WEIGHT_SCHEMA == "underarm-web-weights/v1"
+    assert UNDERARM_WEB_WEIGHT_SCHEMA == "underarm-web-weights/v2"
 
     samples = {
         "inner": (
@@ -51,17 +51,28 @@ def main() -> None:
     inner = weights["inner"]["upper_arm.L"]
     mid = weights["mid"]["upper_arm.L"]
     outer = weights["outer"]["upper_arm.L"]
-    assert inner <= 0.22, weights
-    assert 0.34 <= mid <= 0.58, weights
-    assert outer >= 0.62, weights
-    assert inner + 0.16 < mid < outer - 0.12, weights
+    assert inner <= 0.20, weights
+    assert 0.42 <= mid <= 0.68, weights
+    assert outer >= 0.78, weights
+    assert inner + 0.24 < mid < outer - 0.14, weights
 
     outside = normalized_weights_for_point(
-        (samples["mid"][0], radius * 1.60, samples["mid"][2]),
+        (samples["mid"][0], radius * 1.75, samples["mid"][2]),
         dna,
         joints,
     )
-    assert outside["upper_arm.L"] < outer
+    assert outside["upper_arm.L"] < mid
+
+    floor = normalized_weights_for_point(
+        (
+            -(marks.shoulder_x - radius * 0.36),
+            0.0,
+            marks.shoulder_z - radius * 0.48,
+        ),
+        dna,
+        joints,
+    )
+    assert floor["chest"] >= 0.70, floor
 
     shirt = normalized_weights_for_point(
         samples["outer"],
