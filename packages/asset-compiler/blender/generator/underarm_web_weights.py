@@ -5,7 +5,7 @@ from __future__ import annotations
 from math import sqrt
 from typing import Mapping
 
-UNDERARM_WEB_WEIGHT_SCHEMA = "underarm-web-weights/v1"
+UNDERARM_WEB_WEIGHT_SCHEMA = "underarm-web-weights/v2"
 
 
 def _smoothstep(value: float) -> float:
@@ -23,10 +23,11 @@ def apply_underarm_web_weight_band(
 ) -> dict[str, float]:
     """Blend Body_Core weights along the torso-rooted underarm web guide.
 
-    The inner web stays chest-dominant, the midpoint blends, and the outer
-    web follows the upper arm. Influence falls off elliptically away from the
-    guide and around the separately anchored socket floor so the correction
-    remains local without widening the neutral shoulder.
+    The inner web stays chest-dominant, the midpoint forms a broad deformation
+    bridge, and the outer web follows the upper arm strongly. Influence falls
+    off elliptically away from the guide and around the separately anchored
+    socket floor so the correction remains local without widening the neutral
+    shoulder.
     """
     if part_name != "Body_Core":
         return dict(weights)
@@ -63,13 +64,13 @@ def apply_underarm_web_weight_band(
     closest_z = inner[1] + guide_z * progress
     perpendicular = sqrt((lateral - closest_x) ** 2 + (z - closest_z) ** 2)
 
-    planar_influence = 1.0 - _smoothstep(perpendicular / (radius * 0.62))
-    depth_influence = 1.0 - _smoothstep(abs(y) / (radius * 1.35))
+    planar_influence = 1.0 - _smoothstep(perpendicular / (radius * 0.82))
+    depth_influence = 1.0 - _smoothstep(abs(y) / (radius * 1.55))
 
     floor_x = marks.shoulder_x - radius * 0.36
     floor_z = marks.shoulder_z - radius * 0.48
-    floor_dx = (lateral - floor_x) / (radius * 0.28)
-    floor_dz = (z - floor_z) / (radius * 0.22)
+    floor_dx = (lateral - floor_x) / (radius * 0.24)
+    floor_dz = (z - floor_z) / (radius * 0.19)
     floor_distance = sqrt(floor_dx * floor_dx + floor_dz * floor_dz)
     floor_exclusion = _smoothstep(floor_distance)
 
@@ -77,9 +78,9 @@ def apply_underarm_web_weight_band(
     if influence <= 1e-6:
         return dict(weights)
 
-    target_arm_weight = 0.10 + 0.64 * _smoothstep(progress)
-    blend_strength = 0.82 * influence
+    target_arm_weight = 0.08 + 0.82 * _smoothstep(progress)
+    blend_strength = 0.94 * influence
     current_arm_weight = float(weights[arm_name])
     arm_weight = current_arm_weight * (1.0 - blend_strength) + target_arm_weight * blend_strength
-    arm_weight = min(0.82, max(0.06, arm_weight))
+    arm_weight = min(0.90, max(0.05, arm_weight))
     return {"chest": 1.0 - arm_weight, arm_name: arm_weight}
