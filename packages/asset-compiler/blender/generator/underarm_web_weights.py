@@ -25,8 +25,8 @@ def apply_underarm_web_weight_band(
 
     The inner web stays chest-dominant, the midpoint blends, and the outer
     web follows the upper arm. Influence falls off elliptically away from the
-    guide so the correction remains local and does not widen the neutral
-    shoulder or disturb the socket floor outside the web.
+    guide and around the separately anchored socket floor so the correction
+    remains local without widening the neutral shoulder.
     """
     if part_name != "Body_Core":
         return dict(weights)
@@ -65,7 +65,15 @@ def apply_underarm_web_weight_band(
 
     planar_influence = 1.0 - _smoothstep(perpendicular / (radius * 0.62))
     depth_influence = 1.0 - _smoothstep(abs(y) / (radius * 1.35))
-    influence = planar_influence * depth_influence
+
+    floor_x = marks.shoulder_x - radius * 0.36
+    floor_z = marks.shoulder_z - radius * 0.48
+    floor_dx = (lateral - floor_x) / (radius * 0.28)
+    floor_dz = (z - floor_z) / (radius * 0.22)
+    floor_distance = sqrt(floor_dx * floor_dx + floor_dz * floor_dz)
+    floor_exclusion = _smoothstep(floor_distance)
+
+    influence = planar_influence * depth_influence * floor_exclusion
     if influence <= 1e-6:
         return dict(weights)
 
