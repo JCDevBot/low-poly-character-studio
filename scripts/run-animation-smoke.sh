@@ -22,25 +22,37 @@ BLENDER_ARGS=(--background --factory-startup --python-exit-code 1)
 MODEL_SCRIPT="$ROOT_DIR/packages/asset-compiler/blender/scripts/build_humanoid_job.py"
 RIG_SCRIPT="$ROOT_DIR/packages/asset-compiler/blender/scripts/build_humanoid_rig_job.py"
 ANIMATION_SCRIPT="$ROOT_DIR/packages/asset-compiler/blender/scripts/build_humanoid_animation_job.py"
-OUTPUT_DIR="$ROOT_DIR/image-analysis/output/animation-smoke"
+OUTPUT_PARENT="$ROOT_DIR/image-analysis/output"
+OUTPUT_DIR="$OUTPUT_PARENT/animation-smoke"
+RIG_REVIEW_BUILD_DIR="$OUTPUT_PARENT/pr-21-rig-build"
 rm -rf "$OUTPUT_DIR"
 mkdir -p "$OUTPUT_DIR"
 
 run_fixture() {
   local label="$1"
   local fixture="$ROOT_DIR/packages/asset-compiler/blender/tests/fixtures/style_dna_${label}.json"
-  local model_dir="$OUTPUT_DIR/$label/model"
-  local rig_dir="$OUTPUT_DIR/$label/rig"
-  local animate_dir="$OUTPUT_DIR/$label/animate"
-  mkdir -p "$model_dir" "$rig_dir" "$animate_dir"
+  local fixture_dir="$OUTPUT_DIR/$label"
+  local model_dir="$fixture_dir/model"
+  local rig_dir="$fixture_dir/rig"
+  local animate_dir="$fixture_dir/animate"
+  local input_rig="$RIG_REVIEW_BUILD_DIR/$label/rig/humanoid-rigged.blend"
+  mkdir -p "$animate_dir"
 
-  "$BLENDER" "${BLENDER_ARGS[@]}" --python "$MODEL_SCRIPT" -- \
-    --style-dna "$fixture" --output-dir "$model_dir" --job-id "animation-smoke-$label"
-  "$BLENDER" "${BLENDER_ARGS[@]}" --python "$RIG_SCRIPT" -- \
-    --input-blend "$model_dir/humanoid.blend" --style-dna "$fixture" \
-    --output-dir "$rig_dir" --job-id "animation-smoke-$label"
+  if [[ -f "$input_rig" ]]; then
+    echo "Reusing rig review artifact for $label animation smoke."
+  else
+    echo "Rig review artifact unavailable; building fresh $label rig."
+    mkdir -p "$model_dir" "$rig_dir"
+    "$BLENDER" "${BLENDER_ARGS[@]}" --python "$MODEL_SCRIPT" -- \
+      --style-dna "$fixture" --output-dir "$model_dir" --job-id "animation-smoke-$label"
+    "$BLENDER" "${BLENDER_ARGS[@]}" --python "$RIG_SCRIPT" -- \
+      --input-blend "$model_dir/humanoid.blend" --style-dna "$fixture" \
+      --output-dir "$rig_dir" --job-id "animation-smoke-$label"
+    input_rig="$rig_dir/humanoid-rigged.blend"
+  fi
+
   "$BLENDER" "${BLENDER_ARGS[@]}" --python "$ANIMATION_SCRIPT" -- \
-    --input-blend "$rig_dir/humanoid-rigged.blend" \
+    --input-blend "$input_rig" \
     --output-dir "$animate_dir" --job-id "animation-smoke-$label"
 
   python3 - "$animate_dir/animation-metadata.json" "$animate_dir/humanoid-animated.glb" <<'PY'
