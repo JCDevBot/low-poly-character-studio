@@ -10,6 +10,18 @@ ingest -> analyze -> model -> rig -> animate -> validate -> export
 
 A stage is `pending`, `running`, `completed`, or `failed`. Completed stages retain their artifact paths. Failed stages retain an actionable message plus optional code and details, so earlier completed outputs remain available for inspection or retry.
 
+## Blender toolchain
+
+The repository pins Blender in `.blender-version`. Linux x86_64 developers and GitHub Actions install the same official portable build with:
+
+```bash
+pnpm blender:setup
+```
+
+The setup script downloads from `download.blender.org`, verifies the pinned archive SHA-256 and Blender build hash, and installs into the ignored `.tools/blender/` directory. Pipeline commands use `BLENDER_COMMAND` when set; the rig-review command otherwise prefers `.tools/blender/current/blender` and then falls back to `blender` on `PATH`.
+
+Blender Python stages run with factory startup and `--python-exit-code 1`, so an unhandled Python exception fails the process instead of being discovered later through a missing artifact.
+
 ## Local API
 
 - `POST /jobs` creates a job. The request body contains `modelTypeId` and optional `input`.
@@ -17,6 +29,7 @@ A stage is `pending`, `running`, `completed`, or `failed`. Completed stages reta
 - `GET /jobs/:id` retrieves a persisted manifest.
 - `GET /jobs/:id/artifacts` lists artifact paths recorded by completed stages.
 - `POST /jobs/:id/stages/model/run` validates the job StyleDNA, invokes the humanoid Blender model runner, and records its artifacts.
+- `POST /jobs/:id/stages/rig/run` requires a completed model stage, applies `humanoid-basic-v1`, writes deterministic skin weights, runs deformation smoke poses, and records rigged artifacts.
 - `POST /jobs/:id/stages/:stage/start` marks one stage running.
 - `POST /jobs/:id/stages/:stage/complete` marks it complete and accepts an `artifacts` array.
 - `POST /jobs/:id/stages/:stage/fail` records `message`, optional `code`, and optional `details`.
@@ -35,6 +48,18 @@ artifacts/model/generation-metadata.json
 ```
 
 The GLB root and Blender scene metadata identify the model type, StyleDNA schema, and job ID. The separate `--preset little-guy` Blender path remains available for the bundled example; normal jobs do not silently fall back to it.
+
+## Humanoid rig output
+
+The rig stage opens the model-stage `.blend`, creates the versioned `humanoid-basic-v1` armature, assigns every mesh vertex to valid deform joints with normalized weights, and records:
+
+```text
+artifacts/rig/humanoid-rigged.blend
+artifacts/rig/humanoid-rigged.glb
+artifacts/rig/rig-metadata.json
+```
+
+`rig-metadata.json` contains the joint hierarchy and transforms, skinning counts, topology-fusion diagnostics, and the deformation smoke-pose rotations used during validation. The neutral pose is restored before artifacts are saved.
 
 ## Example
 
@@ -64,10 +89,9 @@ curl -X POST http://localhost:3001/jobs \
   }'
 ```
 
-Use the returned job ID to run the modeling stage:
+Use the returned job ID to run the modeling and rigging stages in order:
 
 ```bash
 curl -X POST http://localhost:3001/jobs/JOB_ID/stages/model/run
+curl -X POST http://localhost:3001/jobs/JOB_ID/stages/rig/run
 ```
-
-Blender must be available as `blender`, or `BLENDER_COMMAND` must point to the executable.

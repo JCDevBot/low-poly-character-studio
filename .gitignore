@@ -5,3 +5,5 @@ __pycache__/
 *.pyc
 packages/blender/exports/
 .workspace/
+.tools/
+image-analysis/output/

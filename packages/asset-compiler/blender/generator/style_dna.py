@@ -11,6 +11,8 @@ from .character_dna import LittleGuyDNA
 
 STYLE_DNA_SCHEMA = "humanoid-style-dna/v1"
 MODEL_TYPE_ID = "humanoid/chibi-v1"
+CHIBI_MIN_HEADS_TALL = 2.6
+CHIBI_MAX_HEADS_TALL = 2.8
 
 _REQUIRED_HINTS = (
     "totalHeight",
@@ -35,6 +37,10 @@ def _number(hints: dict[str, Any], name: str, minimum: float, maximum: float) ->
             f"StyleDNA blenderHints.{name} must be between {minimum} and {maximum}; got {result}"
         )
     return result
+
+
+def _clamp(value: float, minimum: float, maximum: float) -> float:
+    return max(minimum, min(maximum, value))
 
 
 def validate_style_dna(document: Any) -> dict[str, Any]:
@@ -82,20 +88,52 @@ def dna_from_style_document(document: Any) -> tuple[LittleGuyDNA, dict[str, Any]
     normalized = validate_style_dna(document)
     hints = normalized["blenderHints"]
     total_height = hints["totalHeight"]
-    head_height = hints["headHeight"]
-    head_width = hints["headWidth"]
-    torso_width = hints["torsoWidth"]
+    source_head_height = hints["headHeight"]
+
+    # Preserve source measurements in StyleDNA while resolving the selected
+    # model type into its declared 2.6-2.8-head silhouette envelope.
+    resolved_head_height = _clamp(
+        source_head_height,
+        total_height / CHIBI_MAX_HEADS_TALL,
+        total_height / CHIBI_MIN_HEADS_TALL,
+    )
+    head_width_as_head_height = _clamp(
+        hints["headWidth"] / source_head_height,
+        0.88,
+        1.14,
+    )
+    head_depth_as_head_height = _clamp(
+        hints["headDepth"] / source_head_height,
+        0.78,
+        1.10,
+    )
+    eye_spacing_as_head_height = _clamp(
+        hints["eyeSpacing"] / source_head_height,
+        0.28,
+        0.52,
+    )
+    source_head_bottom = total_height - source_head_height
+    eye_fraction_from_bottom = _clamp(
+        (hints["eyeZ"] - source_head_bottom) / source_head_height,
+        0.34,
+        0.62,
+    )
+    resolved_eye_z = (
+        total_height
+        - resolved_head_height
+        + resolved_head_height * eye_fraction_from_bottom
+    )
 
     dna = replace(
         LittleGuyDNA(),
         H=total_height,
-        head_height_ratio=head_height / total_height,
-        head_width_as_head_height=head_width / head_height,
-        head_depth_ratio=hints["headDepth"] / total_height,
-        eye_center_from_top_ratio=(total_height - hints["eyeZ"]) / total_height,
-        eye_spacing_ratio=hints["eyeSpacing"] / head_height,
-        shoulder_width_ratio=(torso_width / 0.68) / head_height,
-        waist_width_ratio=hints["waistWidth"] / head_height,
+        head_height_ratio=resolved_head_height / total_height,
+        head_width_as_head_height=head_width_as_head_height,
+        head_depth_ratio=(resolved_head_height * head_depth_as_head_height) / total_height,
+        eye_center_from_top_ratio=(total_height - resolved_eye_z) / total_height,
+        eye_spacing_ratio=eye_spacing_as_head_height,
+        shoulder_width_ratio=(hints["torsoWidth"] / 0.68) / resolved_head_height,
+        waist_width_ratio=hints["waistWidth"] / resolved_head_height,
         waist_from_top_ratio=1 - ((hints["legLength"] + 0.08) / total_height),
     )
     return dna, normalized
@@ -113,19 +151,32 @@ def load_style_dna(path: str | Path) -> tuple[LittleGuyDNA, dict[str, Any]]:
 
 
 def generation_metadata(dna: LittleGuyDNA, style_document: dict[str, Any] | None) -> dict[str, Any]:
+    source_hints = style_document.get("blenderHints", {}) if style_document else {}
     return {
         "schema": "humanoid-generation-metadata/v1",
         "modelTypeId": MODEL_TYPE_ID,
         "styleDnaSchema": style_document.get("schema") if style_document else "little-guy-preset/v1",
         "source": style_document.get("source") if style_document else "packages/configs/presets/little_guy_style.json",
         "resolvedDna": asdict(dna),
+        "sourceMeasurements": {
+            name: source_hints.get(name)
+            for name in _REQUIRED_HINTS
+            if name in source_hints
+        },
         "measurements": {
             "totalHeight": dna.H,
             "headHeight": dna.head_height,
             "headWidth": dna.head_width,
             "headDepth": dna.head_depth,
             "torsoWidth": dna.torso_width,
+            "waistWidth": dna.waist_width,
             "waistZ": dna.waist_z,
             "legLength": dna.leg_length,
+            "headsTall": dna.H / dna.head_height,
+        },
+        "modelProfile": {
+            "id": MODEL_TYPE_ID,
+            "headsTallMinimum": CHIBI_MIN_HEADS_TALL,
+            "headsTallMaximum": CHIBI_MAX_HEADS_TALL,
         },
     }

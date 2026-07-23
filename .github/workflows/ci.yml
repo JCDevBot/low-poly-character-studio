@@ -45,6 +45,9 @@ jobs:
       - name: Test humanoid model runner
         run: pnpm model-runner:test
 
+      - name: Test humanoid rig runner
+        run: pnpm rig-runner:test
+
       - name: Build Style Studio
         run: pnpm studio:build
 
@@ -66,5 +69,65 @@ jobs:
       - name: Test humanoid StyleDNA contracts
         run: python3 packages/asset-compiler/blender/tests/test_style_dna.py
 
+      - name: Test humanoid rig contracts
+        run: python3 packages/asset-compiler/blender/tests/test_rig_contract.py
+
+      - name: Test localized underarm web weights
+        run: python3 packages/asset-compiler/blender/tests/test_underarm_web_weights.py
+
       - name: Compile Python sources
         run: python3 -m compileall -q packages/asset-compiler/blender/generator packages/asset-compiler/blender/scripts
+
+  blender-rig-smoke:
+    name: Blender rig smoke test
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Set up pnpm
+        uses: pnpm/action-setup@v4
+
+      - name: Cache Blender toolchain
+        uses: actions/cache@v4
+        with:
+          path: .tools/blender
+          key: blender-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('.blender-version', 'scripts/setup-blender.sh') }}
+
+      - name: Install Blender runtime libraries
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends \
+            xvfb \
+            libegl1 \
+            libgl1 \
+            libice6 \
+            libsm6 \
+            libx11-6 \
+            libxfixes3 \
+            libxi6 \
+            libxkbcommon0 \
+            libxrender1 \
+            libxxf86vm1
+
+      - name: Set up pinned Blender
+        id: blender
+        run: pnpm blender:setup
+
+      - name: Generate compact and tall rig review
+        env:
+          BLENDER_COMMAND: ${{ steps.blender.outputs.executable }}
+          LIBGL_ALWAYS_SOFTWARE: '1'
+        run: xvfb-run -a -s '-screen 0 1280x1024x24' pnpm rig-review
+
+      - name: Upload Blender review diagnostics
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: humanoid-rig-review-${{ github.sha }}
+          path: |
+            image-analysis/output/pr-21-rig-review.zip
+            image-analysis/output/pr-21-rig-review-failed.zip
+          if-no-files-found: warn
+          retention-days: 7
