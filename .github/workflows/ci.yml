@@ -36,6 +36,12 @@ jobs:
       - name: Test model type contracts
         run: pnpm model-types:test
 
+      - name: Test modular pipeline artifact contracts
+        run: pnpm pipeline-contracts:test
+
+      - name: Test semantic reference analysis
+        run: pnpm semantic-analysis:test
+
       - name: Test persistent build jobs
         run: pnpm build-jobs:test
 
