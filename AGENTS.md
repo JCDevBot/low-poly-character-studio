@@ -9,7 +9,7 @@ GitHub state and repository files are authoritative. Chat history is context, no
 - `main` is the default branch and production source of truth.
 - `develop` is the integration branch for ordinary feature and fix work.
 - GitHub Issues are the canonical backlog and execution record.
-- Pull requests are the canonical implementation, review, and promotion record.
+- Pull requests are the canonical implementation, review, synchronization, and promotion record.
 - `docs/product-vision.md`, `docs/architecture.md`, `docs/task-management.md`, and applicable gold-standard documents define product and engineering constraints.
 
 ## Mandatory startup handshake
@@ -26,7 +26,7 @@ At the beginning of every run:
    - `docs/gold-standard-humanoid-chibi.md` when work can affect `humanoid/chibi-v1`
 5. Inspect open pull requests, open issues, CI, review submissions, comments, and unresolved review threads.
 6. Verify whether writes intended by an interrupted prior run already occurred before repeating them.
-7. Compare `main` and `develop`. When `main` contains commits missing from `develop`, synchronize `main -> develop` before starting ordinary work.
+7. Compare `main` and `develop`. When `main` contains commits missing from `develop`, open or continue an explicit `Sync:` pull request from `main` to `develop`, merge it after green CI, and verify `develop` before starting ordinary work.
 
 Do not infer that GitHub is unavailable because a tool schema is initially hidden. GitHub unavailability may be reported only after a real connector action fails. The report must include the attempted action, exact error or HTTP status, retry count, and likely failure class: authentication, permission, repository resolution, rate limit, transient service, or one unsupported connector operation.
 
@@ -76,10 +76,19 @@ When a feature PR was green but `develop` fails after integration:
 - Run the required checks and obtain the review appropriate to the risk.
 - After the hotfix reaches `main`, synchronize it back into `develop` before ordinary feature work resumes.
 
+### Main-to-develop synchronization
+
+- Use a pull request with head `main`, base `develop`, and a title beginning `Sync:` whenever `main` contains commits missing from `develop`.
+- A `main -> develop` PR without the `Sync:` title is invalid and must fail branch-policy validation.
+- Synchronization carries accepted production history back into integration; it is not an ordinary feature branch and does not require a new implementation issue when it only reconciles already-approved commits.
+- Merge the synchronization PR only after required CI passes and review threads are resolved.
+- Verify `main` is then an ancestor of `develop` and `develop` is green before ordinary branching resumes.
+- Do not substitute force-pushing, history rewriting, or an unrelated feature branch for synchronization.
+
 ### Branch capacity and synchronization
 
-- Maintain no more than two active implementation branches.
-- A second branch is allowed only while the first waits exclusively on CI, review, or another non-interactive state, and the work is independent and non-overlapping.
+- Maintain no more than two active implementation branches. Long-lived branch promotion and synchronization PRs do not create separate implementation branches.
+- A second implementation branch is allowed only while the first waits exclusively on CI, review, or another non-interactive state, and the work is independent and non-overlapping.
 - Prefer normal merge commits to refresh long-lived or shared branches.
 - Never force-push a shared branch.
 - Do not ask the user to run local Git commands when the connector can perform a safe repository-native recovery.
@@ -90,7 +99,7 @@ On each run:
 
 1. Complete the startup handshake.
 2. Re-evaluate every `[BLOCKED]` issue whose blockers are objective GitHub dependencies. Move it to `[READY]` immediately when all named prerequisites are complete.
-3. Follow up on open PR failures, requested changes, or merge conflicts before selecting unrelated work.
+3. Follow up on open PR failures, requested changes, merge conflicts, required promotions, or required synchronization before selecting unrelated work.
 4. Continue the lowest-numbered `[IN PROGRESS]` issue.
 5. If none exists, select the highest-priority `[READY]` issue with satisfied dependencies; break ties by lower issue number.
 6. Change a newly selected issue to `[IN PROGRESS]` before editing.
@@ -98,8 +107,8 @@ On each run:
 8. Run the narrowest relevant checks plus all repository-required CI checks.
 9. Open or update one focused PR that references the issue.
 10. Move the issue to `[REVIEW]` only when acceptance criteria, checks, documentation, and evidence are complete.
-11. Apply the merge and promotion rules below.
-12. After a merge, verify issue closure, evaluate newly unblocked work, and continue when time remains.
+11. Apply the merge, synchronization, and promotion rules below.
+12. After a merge, verify issue closure, branch ancestry, CI, and newly unblocked work, then continue when time remains.
 13. When no eligible work or meaningful PR follow-up exists, make no repository changes and send no routine status notification.
 
 A queued or running CI job is not itself a reason to stop. Use remaining time to inspect artifacts, improve documentation, address known risks, or advance one eligible independent task.
@@ -128,6 +137,8 @@ Human approval is required before:
 - destructive changes, migrations, history rewriting, or difficult-to-reverse operations;
 - security-sensitive behavior or ambiguous risk.
 
+A routine `Sync:` PR that contains only already-approved `main` history may merge autonomously after green CI because it makes no new product decision. Any conflict or additional content makes it review-required.
+
 ## CI and delivery evidence
 
 CI runs for pull requests targeting `develop` or `main` and pushes to both branches.
@@ -138,6 +149,7 @@ CI runs for pull requests targeting `develop` or `main` and pushes to both branc
 - GitHub Actions artifacts are delivery evidence, not a claim that a public environment exists.
 - Public hosting, production workers, credentials, and paid infrastructure require separate approved work.
 - Treat the commit and artifact tested on `develop` as the promotion candidate. Avoid untracked rebuild differences where practical.
+- Route-policy behavior is tested through `scripts/test-delivery-route.sh`; do not rely only on a live release to discover invalid routing.
 
 ## Troubleshooting ladder
 
@@ -176,7 +188,7 @@ After any interrupted or partially failed run, verify before writing:
 - issue title, body, comments, and state;
 - PR existence, target branch, draft state, comments, reviews, and merge status;
 - CI run and artifact state;
-- whether a merge, issue closure, branch creation, or dependency promotion already occurred.
+- whether a merge, issue closure, branch creation, dependency promotion, production promotion, or synchronization already occurred.
 
 Resume from verified GitHub state. Avoid duplicate comments, commits, branches, PRs, and state transitions.
 

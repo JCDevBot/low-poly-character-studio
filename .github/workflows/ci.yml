@@ -19,36 +19,16 @@ jobs:
     name: Validate delivery branch policy
     runs-on: ubuntu-latest
     steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
       - name: Validate pull request route
         if: github.event_name == 'pull_request'
         env:
           BASE_REF: ${{ github.base_ref }}
           HEAD_REF: ${{ github.head_ref }}
           PR_TITLE: ${{ github.event.pull_request.title }}
-        run: |
-          set -euo pipefail
-
-          if [[ "$BASE_REF" == "develop" ]]; then
-            if [[ "$HEAD_REF" == "main" || "$HEAD_REF" == "develop" ]]; then
-              echo "Ordinary work must use a feature or fix branch and target develop."
-              exit 1
-            fi
-            exit 0
-          fi
-
-          if [[ "$BASE_REF" == "main" ]]; then
-            if [[ "$HEAD_REF" == "develop" ]]; then
-              exit 0
-            fi
-            if [[ "$HEAD_REF" == agent/issue-* && "$PR_TITLE" == Hotfix:* ]]; then
-              exit 0
-            fi
-            echo "Pull requests to main must be a develop promotion or an explicitly titled Hotfix from an agent/issue-* branch."
-            exit 1
-          fi
-
-          echo "Unsupported pull request target: $BASE_REF"
-          exit 1
+        run: bash scripts/validate-delivery-route.sh "$BASE_REF" "$HEAD_REF" "$PR_TITLE"
 
   studio-build:
     name: Build Style Studio
@@ -142,6 +122,9 @@ jobs:
 
       - name: Validate shell syntax
         run: bash -n scripts/*.sh
+
+      - name: Test delivery route policy
+        run: bash scripts/test-delivery-route.sh
 
       - name: Test humanoid StyleDNA contracts
         run: python3 packages/asset-compiler/blender/tests/test_style_dna.py
