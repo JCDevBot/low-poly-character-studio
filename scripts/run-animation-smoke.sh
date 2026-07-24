@@ -22,6 +22,7 @@ BLENDER_ARGS=(--background --factory-startup --python-exit-code 1)
 MODEL_SCRIPT="$ROOT_DIR/packages/asset-compiler/blender/scripts/build_humanoid_job.py"
 RIG_SCRIPT="$ROOT_DIR/packages/asset-compiler/blender/scripts/build_humanoid_rig_job.py"
 ANIMATION_SCRIPT="$ROOT_DIR/packages/asset-compiler/blender/scripts/build_humanoid_animation_job.py"
+REVIEW_SCRIPT="$ROOT_DIR/packages/asset-compiler/blender/scripts/render_animation_review.py"
 OUTPUT_PARENT="$ROOT_DIR/image-analysis/output"
 OUTPUT_DIR="$OUTPUT_PARENT/animation-smoke"
 RIG_REVIEW_BUILD_DIR="$OUTPUT_PARENT/pr-21-rig-build"
@@ -35,8 +36,9 @@ run_fixture() {
   local model_dir="$fixture_dir/model"
   local rig_dir="$fixture_dir/rig"
   local animate_dir="$fixture_dir/animate"
+  local review_dir="$fixture_dir/review"
   local input_rig="$RIG_REVIEW_BUILD_DIR/$label/rig/humanoid-rigged.blend"
-  mkdir -p "$animate_dir"
+  mkdir -p "$animate_dir" "$review_dir"
 
   if [[ -f "$input_rig" ]]; then
     echo "Reusing rig review artifact for $label animation smoke."
@@ -55,7 +57,13 @@ run_fixture() {
     --input-blend "$input_rig" \
     --output-dir "$animate_dir" --job-id "animation-smoke-$label"
 
-  python3 - "$animate_dir/animation-metadata.json" "$animate_dir/humanoid-animated.glb" <<'PY'
+  "$BLENDER" "${BLENDER_ARGS[@]}" --python "$REVIEW_SCRIPT" -- \
+    --input-blend "$animate_dir/humanoid-animated.blend" \
+    --metadata "$animate_dir/animation-metadata.json" \
+    --output-dir "$review_dir" \
+    --label "$label"
+
+  python3 - "$animate_dir/animation-metadata.json" "$animate_dir/humanoid-animated.glb" "$review_dir/review-manifest.json" <<'PY'
 import json
 import struct
 import sys
@@ -63,6 +71,7 @@ from pathlib import Path
 
 metadata_path = Path(sys.argv[1])
 glb_path = Path(sys.argv[2])
+review_manifest_path = Path(sys.argv[3])
 expected = ["a-pose", "idle", "walk", "wave"]
 metadata = json.loads(metadata_path.read_text(encoding="utf-8"))
 assert metadata["schema"] == "humanoid-animation-pack/v1"
@@ -78,10 +87,18 @@ chunk_length, chunk_type = struct.unpack_from("<II", raw, 12)
 assert chunk_type == 0x4E4F534A
 payload = json.loads(raw[20:20 + chunk_length].decode("utf-8").rstrip(" \t\r\n\x00"))
 assert [animation.get("name") for animation in payload.get("animations", [])] == expected
+
+review = json.loads(review_manifest_path.read_text(encoding="utf-8"))
+assert review["schema"] == "humanoid-animation-review/v1"
+assert list(review["clips"]) == expected
+assert len(review["renders"]) == 16
+for filename in review["renders"]:
+    path = review_manifest_path.parent / filename
+    assert path.is_file() and path.stat().st_size > 0
 PY
 }
 
 run_fixture compact
 run_fixture tall
 
-echo "Compact and tall humanoid animation smoke tests passed."
+echo "Compact and tall humanoid animation smoke tests and review renders passed."
