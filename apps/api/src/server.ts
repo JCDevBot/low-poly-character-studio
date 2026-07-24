@@ -6,6 +6,7 @@ import { BuildJobStore } from './build-jobs.js'
 import { runHumanoidModelStage } from './model-runner.js'
 import { runHumanoidRigStage } from './rig-runner.js'
 import { readAnimationMetadata, runHumanoidAnimationStage } from './animation-runner.js'
+import { finalizeHumanoidGlb, readFinalArtifact } from './final-artifact.js'
 
 const app = express()
 app.use(cors())
@@ -89,6 +90,34 @@ app.post('/jobs/:id/stages/animate/run', async (req, res) => {
     const job = await runHumanoidAnimationStage({ jobId: req.params.id, jobs, buildWorkspace, projectRoot })
     res.json({ ok: true, job })
   } catch (error) { sendError(res, error, 500) }
+})
+
+app.post('/jobs/:id/stages/finalize/run', async (req, res) => {
+  try {
+    const result = await finalizeHumanoidGlb({ jobId: req.params.id, jobs, buildWorkspace })
+    res.json({ ok: true, ...result })
+  } catch (error) { sendError(res, error, 422) }
+})
+
+app.get('/jobs/:id/final', async (req, res) => {
+  try {
+    const metadata = await readFinalArtifact({ jobId: req.params.id, jobs, buildWorkspace })
+    res.json({ ok: true, metadata })
+  } catch (error) { sendError(res, error, 404) }
+})
+
+app.get('/jobs/:id/final.glb', async (req, res) => {
+  try {
+    const metadata = await readFinalArtifact({ jobId: req.params.id, jobs, buildWorkspace })
+    res.type('model/gltf-binary').sendFile(path.join(buildWorkspace, req.params.id, metadata.artifact))
+  } catch (error) { sendError(res, error, 404) }
+})
+
+app.get('/jobs/:id/download', async (req, res) => {
+  try {
+    const metadata = await readFinalArtifact({ jobId: req.params.id, jobs, buildWorkspace })
+    res.download(path.join(buildWorkspace, req.params.id, metadata.artifact), `humanoid-${req.params.id}.glb`)
+  } catch (error) { sendError(res, error, 404) }
 })
 
 app.post('/jobs/:id/stages/:stage/start', async (req, res) => {
