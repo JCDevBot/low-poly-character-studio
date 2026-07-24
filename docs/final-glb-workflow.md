@@ -53,8 +53,12 @@ A successful final artifact must:
 - contain at least one skin;
 - contain at least one animation clip;
 - contain no external buffer or image dependencies;
+- embed `low-poly-character-studio-build/v1` provenance in `asset.extras`;
+- identify the job, model type, pipeline schema, StyleDNA schema, generation settings, and source animation artifact;
 - have a persisted validation report;
 - be exposed only after both validate and export stages complete.
+
+The export stage rewrites only the GLB JSON chunk to add provenance and preserves the binary chunks containing geometry, materials, rig, and animation data.
 
 A failed validation stage does not expose a preview or successful download URL.
 
