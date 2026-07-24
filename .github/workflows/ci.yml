@@ -68,6 +68,9 @@ jobs:
       - name: Test animation clip catalog
         run: pnpm animation-catalog:test
 
+      - name: Test final GLB Studio workflow
+        run: pnpm final-workflow:test
+
       - name: Test humanoid model runner
         run: pnpm model-runner:test
 
