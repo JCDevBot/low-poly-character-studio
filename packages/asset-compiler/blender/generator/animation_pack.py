@@ -168,9 +168,6 @@ def apply_animation_pack(armature) -> dict:
             for bone in armature.pose.bones:
                 bone.rotation_euler = current_rotations[bone.name]
                 bone.keyframe_insert("rotation_euler", frame=pose.frame, group=bone.name)
-        for curve in action.fcurves:
-            for point in curve.keyframe_points:
-                point.interpolation = "LINEAR"
 
     armature.animation_data.action = None
     armature["animationPackId"] = ANIMATION_PACK_ID
