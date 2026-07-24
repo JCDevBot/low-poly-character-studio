@@ -48,11 +48,17 @@ jobs:
       - name: Test reference analysis
         run: pnpm reference-analysis:test
 
+      - name: Test animation clip catalog
+        run: pnpm animation-catalog:test
+
       - name: Test humanoid model runner
         run: pnpm model-runner:test
 
       - name: Test humanoid rig runner
         run: pnpm rig-runner:test
+
+      - name: Test humanoid animation runner
+        run: pnpm animation-runner:test
 
       - name: Build Style Studio
         run: pnpm studio:build
@@ -81,11 +87,14 @@ jobs:
       - name: Test localized underarm web weights
         run: python3 packages/asset-compiler/blender/tests/test_underarm_web_weights.py
 
+      - name: Test humanoid animation pack contracts
+        run: python3 packages/asset-compiler/blender/tests/test_animation_pack.py
+
       - name: Compile Python sources
         run: python3 -m compileall -q packages/asset-compiler/blender/generator packages/asset-compiler/blender/scripts
 
   blender-rig-smoke:
-    name: Blender rig smoke test
+    name: Blender rig and animation smoke test
     runs-on: ubuntu-latest
     timeout-minutes: 30
     steps:
@@ -127,13 +136,20 @@ jobs:
           LIBGL_ALWAYS_SOFTWARE: '1'
         run: xvfb-run -a -s '-screen 0 1280x1024x24' pnpm rig-review
 
+      - name: Generate compact and tall animation outputs
+        env:
+          BLENDER_COMMAND: ${{ steps.blender.outputs.executable }}
+          LIBGL_ALWAYS_SOFTWARE: '1'
+        run: xvfb-run -a -s '-screen 0 1280x1024x24' bash scripts/run-animation-smoke.sh
+
       - name: Upload Blender review diagnostics
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: humanoid-rig-review-${{ github.sha }}
+          name: humanoid-rig-animation-review-${{ github.sha }}
           path: |
             image-analysis/output/pr-21-rig-review.zip
             image-analysis/output/pr-21-rig-review-failed.zip
+            image-analysis/output/animation-smoke
           if-no-files-found: warn
           retention-days: 7
