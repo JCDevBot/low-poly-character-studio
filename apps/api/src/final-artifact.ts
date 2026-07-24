@@ -172,3 +172,18 @@ export async function readFinalArtifact(options: {
   if (metadata.schema !== 'final-artifact/v1') throw new Error('Final artifact metadata does not match final-artifact/v1')
   return metadata
 }
+
+export async function readFinalValidation(options: {
+  jobId: string
+  jobs: BuildJobStore
+  buildWorkspace: string
+}): Promise<FinalGlbValidation> {
+  const metadata = await readFinalArtifact(options)
+  const validation = JSON.parse(
+    await readFile(path.join(options.buildWorkspace, options.jobId, metadata.validationReport), 'utf8')
+  ) as FinalGlbValidation
+  if (validation.schema !== 'final-glb-validation/v1') {
+    throw new Error('Final validation report does not match final-glb-validation/v1')
+  }
+  return validation
+}
