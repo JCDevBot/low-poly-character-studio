@@ -12,7 +12,7 @@ This repository currently produces GitHub Actions build artifacts. It does not y
 
 ```text
 accepted main
-  -> synchronize main into develop when needed
+  -> Sync: main into develop when needed
   -> branch from current develop
   -> implement and test on the issue branch
   -> pull request to develop
@@ -25,9 +25,10 @@ accepted main
 
 1. Confirm the default branch is `main`.
 2. Compare `main` and `develop`.
-3. When `main` has commits missing from `develop`, synchronize `main -> develop` through a normal merge or pull request.
-4. Confirm `develop` is green.
-5. Create the issue branch from the current `develop` head.
+3. When `main` has commits missing from `develop`, open or continue a PR with head `main`, base `develop`, and title beginning `Sync:`.
+4. Merge the synchronization PR after required CI passes and verify `main` is an ancestor of `develop`.
+5. Confirm `develop` is green.
+6. Create the issue branch from the current `develop` head.
 
 ### Feature PR requirements
 
@@ -77,9 +78,32 @@ green develop
   -> human approval
   -> merge to main
   -> main CI and production build evidence
+  -> Sync: main -> develop before new work
 ```
 
 CI/CD validates and records evidence. It does not silently merge a promotion or bypass required human approval.
+
+## Main-to-develop synchronization flow
+
+Use synchronization whenever a production promotion, hotfix, or other approved `main` change is not yet contained in `develop`.
+
+```text
+main ahead of develop
+  -> PR head main, base develop
+  -> title begins Sync:
+  -> route-policy and full CI pass
+  -> merge to develop
+  -> verify main is an ancestor of develop
+  -> verify develop is green
+  -> resume ordinary work
+```
+
+Synchronization rules:
+
+- A `main -> develop` PR without a `Sync:` title fails route-policy validation.
+- A routine sync contains only already-approved `main` history and may merge autonomously when green.
+- Conflicts, additional edits, or a product decision require a focused issue and human review.
+- Do not force-push, rewrite history, or use an unrelated feature branch to carry production history.
 
 ## Hotfix flow
 
@@ -91,7 +115,7 @@ main
   -> PR titled Hotfix: ... targeting main
   -> focused validation and approval
   -> merge to main
-  -> reconcile main back into develop
+  -> Sync: main back into develop
   -> verify develop is green
 ```
 
@@ -110,8 +134,11 @@ CI runs on:
 The CI branch-policy job permits:
 
 - ordinary issue branches targeting `develop`;
+- `main` targeting `develop` only when the PR title begins `Sync:`;
 - `develop` targeting `main` for promotion;
 - `agent/issue-*` targeting `main` only when the PR title begins `Hotfix:`.
+
+The policy is implemented by `scripts/validate-delivery-route.sh`. `scripts/test-delivery-route.sh` exercises valid and invalid feature, synchronization, promotion, and hotfix routes during CI.
 
 ## Build evidence
 
@@ -132,9 +159,22 @@ This artifact is an immutable delivery candidate for the retention period. It is
 | Feature PR test, build, or review failure | Original feature branch |
 | Conflict with newer `develop` | Original feature branch after reconciliation |
 | Failure first discovered on `develop` | Focused integration-fix branch from `develop` |
-| Production defect | Hotfix branch from `main`, then synchronize to `develop` |
+| Synchronization conflict or extra required change | Focused issue branch; do not hide changes inside the `Sync:` PR |
+| Production defect | Hotfix branch from `main`, then `Sync:` to `develop` |
 | Transient GitHub Actions failure | Retry after inspecting the run; do not change product code without evidence |
 | Missing credential or environment | Block with the exact provisioning or approval required |
+
+## Repository protection policy
+
+The intended GitHub rules are tracked in issue #33:
+
+- `main` requires PRs, green required checks, resolved conversations, and human production approval.
+- `develop` requires PRs, green required checks, and resolved conversations.
+- Green low-risk PRs into `develop` may retain autonomous merge authority under `AGENTS.md`.
+- Consequential changes require human review.
+- Force-pushes and deletion are blocked on both long-lived branches.
+
+The current connector does not expose branch-protection or ruleset administration, so issue #33 remains blocked on repository-settings capability.
 
 ## Future deployment environments
 
