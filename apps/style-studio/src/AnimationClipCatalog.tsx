@@ -1,14 +1,14 @@
 import React, { useEffect, useState } from 'react'
 
 type StageState = { status: 'pending' | 'running' | 'completed' | 'failed' }
-type BuildJob = {
+export type BuildJob = {
   id: string
   createdAt: string
   modelTypeId: string
   stages: { animate: StageState }
 }
 
-type AnimationClip = {
+export type AnimationClip = {
   name: string
   startFrame: number
   endFrame: number
