@@ -2,9 +2,17 @@
 
 ## Source of truth
 
-GitHub Issues are the canonical task list. Pull requests are the canonical implementation record. Repository documentation defines product and engineering constraints.
+GitHub Issues are the canonical task list. Pull requests are the canonical implementation and promotion record. Repository documentation defines product, engineering, branch, review, and delivery constraints.
 
-A scheduled agent run must reconstruct state from GitHub every time. Chat history is not task storage.
+Every agent run reconstructs state from GitHub. Chat history is not task storage.
+
+## Branch roles
+
+- `main`: default branch and production source of truth.
+- `develop`: integration branch and source for ordinary feature and fix branches.
+- `agent/issue-<number>-<short-slug>`: issue branch for feature, defect, maintenance, integration-fix, spike, and hotfix work.
+
+Ordinary issue branches start from current `develop` and target `develop`. A hotfix branch starts from `main`, targets `main`, uses a PR title beginning `Hotfix:`, and is reconciled back into `develop` after merge.
 
 ## Issue title format
 
@@ -16,19 +24,19 @@ Every actionable issue title uses:
 
 Allowed states:
 
-- `READY`: acceptance criteria are clear, dependencies are satisfied, and work may begin
-- `IN PROGRESS`: actively owned by the agent
-- `REVIEW`: implementation is in a pull request and acceptance criteria are believed complete
-- `BLOCKED`: work cannot continue without a named dependency or decision
+- `READY`: acceptance criteria are clear, dependencies are satisfied, and work may begin.
+- `IN PROGRESS`: actively owned by the agent.
+- `REVIEW`: implementation and evidence are complete in a pull request.
+- `BLOCKED`: safe recovery is exhausted or a named decision, credential, environment, or dependency is required.
 
 Allowed priorities:
 
-- `P0`: blocks the end-to-end product or repository operation
-- `P1`: required for the humanoid MVP
-- `P2`: important reliability, usability, or extensibility work
-- `P3`: later improvement
+- `P0`: blocks repository operation, production stability, or the agreed delivery path.
+- `P1`: required for the humanoid MVP.
+- `P2`: important reliability, usability, or extensibility work.
+- `P3`: later improvement.
 
-Closed issues are complete or intentionally cancelled. State markers are not used as a substitute for closing completed issues.
+Closed issues are complete or intentionally cancelled. State markers do not replace issue closure.
 
 ## Required issue sections
 
@@ -45,68 +53,188 @@ The bounded work included in this issue.
 - [ ] Verifiable result
 
 ## Dependencies
-Links or `None`.
+Exact issue or pull request numbers, or `None`.
 
 ## Implementation notes
-Constraints, relevant files, and decisions.
+Constraints, relevant files, branch source, target branch, testing, evidence, and human gates.
 ```
+
+## Task types
+
+### Feature or ordinary defect
+
+- Starts from `develop`.
+- Targets `develop`.
+- Feature-specific failures are corrected on the same issue branch.
+- A consequential product or visual change can be implemented fully but remains in `REVIEW` until approved.
+
+### Test, documentation, CI, contract, or maintenance task
+
+- Starts from `develop` and targets `develop`.
+- May be autonomously merged when clearly inside the low-risk authorization in `AGENTS.md`.
+- Steering, authority, branch-policy, and delivery-policy documentation is not routine documentation and requires human review.
+
+### Integration fix
+
+- Created only when green feature work causes or exposes a failure after reaching `develop`.
+- Starts from the failing `develop` commit and targets `develop`.
+- Restores green integration before additional ordinary feature merges.
+- Links the triggering issue or PR and adds regression coverage when practical.
+
+### Production hotfix
+
+- Represents a production-impacting defect requiring a direct correction to `main`.
+- Starts from `main` and targets `main`.
+- PR title begins `Hotfix:`.
+- Uses the narrowest safe change and required risk review.
+- After merge, the exact hotfix is reconciled into `develop` before ordinary work resumes.
+
+### Promotion
+
+- Is a pull request from `develop` to `main`, not an ordinary implementation branch.
+- Includes the exact source and target commits, included issues, green CI, delivery artifact identity, known risks, and rollback or forward-fix guidance.
+- Requires explicit human approval.
+- Does not hide unrelated or failing work inside a release batch.
+
+### Epic
+
+- Tracks a coordinated outcome and child dependencies.
+- Is not selected as one implementation task while independently deliverable children remain open.
+- Closes only after child completion and outcome verification.
+
+### Exploratory spike
+
+- Has a strict time box and a knowledge, prototype, or decision-record outcome.
+- Avoids production coupling unless the issue explicitly authorizes it.
+- Separates learned facts, remaining unknowns, recommendation, and follow-up implementation work.
 
 ## Selection and execution rules
 
-The hourly agent selects and advances work deterministically:
+The agent selects and advances work deterministically:
 
-1. Re-evaluate `BLOCKED` issues whose blockers are objective GitHub dependencies. Move them to `READY` when all listed prerequisite issues are closed and prerequisite pull requests are merged.
-2. Continue the lowest-numbered open `IN PROGRESS` issue.
-3. Otherwise select the lowest priority number among `READY` issues with satisfied dependencies.
-4. Break priority ties by lowest issue number.
-5. Work for up to roughly 45 minutes and complete an entire small issue in one run when practical.
-6. Maintain at most two active implementation branches.
-7. A second issue may be started only while the first is waiting exclusively on CI, review, or another non-interactive GitHub state, and only when the work is independent and non-overlapping.
-8. Do not begin a `BLOCKED` or `REVIEW` issue unless its state has changed or its pull request needs follow-up.
-9. After an authorized merge, verify issue closure, promote newly unblocked tasks, and continue with the next eligible task during the same run when time remains.
-10. Do not invent work when the queue is empty. Create a proposed issue only when a clear defect or prerequisite is discovered while completing an existing issue.
+1. Complete the GitHub startup handshake in `AGENTS.md`.
+2. Inspect open PRs for CI failures, requested changes, merge conflicts, or incomplete evidence. Follow up before selecting unrelated work.
+3. Re-evaluate `BLOCKED` issues with objective GitHub dependencies. Move them to `READY` when every named prerequisite issue is closed and prerequisite PR is merged.
+4. If `main` contains commits missing from `develop`, synchronize `main -> develop` before new ordinary work.
+5. Continue the lowest-numbered open `IN PROGRESS` issue.
+6. Otherwise select the lowest priority number among `READY` issues with satisfied dependencies.
+7. Break priority ties by lower issue number.
+8. Change a newly selected issue to `IN PROGRESS` before editing.
+9. Work for up to roughly 45 minutes and complete an entire small issue when practical.
+10. Maintain at most two active implementation branches.
+11. Start a second issue only when the first waits exclusively on CI, review, or another non-interactive state and the tasks are independent and non-overlapping.
+12. Do not begin a `BLOCKED` or `REVIEW` issue unless its state changed or its PR needs follow-up.
+13. After an authorized merge into `develop`, verify issue closure, integration CI, delivery evidence, and newly unblocked tasks.
+14. Do not invent work when the queue is empty. Create a new issue only for a clear defect, prerequisite, integration failure, or bounded follow-up found during approved work.
+
+A queued CI job is not a blocker. Continue useful independent inspection, documentation, artifact review, or eligible non-overlapping work.
 
 ## State transitions
 
 ```text
 READY -> IN PROGRESS -> REVIEW -> closed
-                 \-> BLOCKED -> READY
+                  \-> BLOCKED -> READY
 ```
 
-Before changing an issue to `REVIEW`, the agent must link its pull request and post:
+Move an issue from `REVIEW` back to `IN PROGRESS` when its PR fails CI, receives required changes, conflicts with the target branch, or no longer satisfies acceptance criteria.
 
-- concise implementation summary
-- checks performed and results
-- known limitations or follow-up issues
+Before changing an issue to `REVIEW`, link the PR and post:
 
-When an issue is blocked, the issue comment must state:
+- concise implementation summary;
+- checks performed and results;
+- generated or delivery artifacts inspected;
+- known limitations and follow-up issues;
+- exact human decision required, when applicable.
 
-- what failed or is missing
-- why the agent cannot resolve it safely
-- the smallest action needed to unblock it
+When an issue is blocked, post:
 
-An issue blocked only by other GitHub work should list exact issue or pull request numbers so a scheduled run can resolve the dependency without interpretation.
+- the exact failure or missing requirement;
+- troubleshooting steps and retries already attempted;
+- why the agent cannot resolve it safely;
+- the smallest action needed to unblock it;
+- exact issue, PR, credential, environment, or decision dependency.
 
-## Branch and pull request conventions
+## Branch synchronization
 
-- Branch: `agent/issue-<number>-<short-slug>`
-- Pull request title: concise imperative description
-- Pull request body includes `Closes #<number>` when the issue should close on merge
-- One issue per pull request unless an issue explicitly defines a grouped migration
-- Draft pull requests are preferred until CI is green and acceptance criteria are complete
-- No more than two active implementation branches may exist at once
-- Parallel branches must not overlap in files or behavior unless one is explicitly rebased after the other merges
+Before creating an ordinary branch:
 
-## Merge policy
+1. compare `main` and `develop`;
+2. when `main` is not an ancestor of `develop`, synchronize `main -> develop` through a normal merge or PR;
+3. verify `develop` CI;
+4. branch from the resulting `develop` head.
 
-The agent may autonomously merge after all required checks pass when a pull request is focused, reversible, and clearly within an authorized low-risk class in `AGENTS.md`.
+When `develop` advances while a feature branch is active:
 
-Typical authorized classes include documentation, tests, CI configuration, schemas and contracts without consequential runtime changes, small behavior-preserving refactors, and routine repository maintenance.
+- refresh only when required to resolve conflict, consume a dependency, or validate integration;
+- use normal commits or merge commits;
+- resolve non-consequential conflicts autonomously;
+- request a decision only when the conflict represents an unresolved product or architecture choice;
+- never force-push a shared branch.
 
-Human review remains required for subjective visual acceptance; Blender geometry, rigging, animation, materials, or generation behavior; consequential architecture or product decisions; public deployment; credentials or paid infrastructure; destructive changes; migrations; security-sensitive behavior; and any ambiguous-risk change.
+## Failure ownership
 
-When a pull request mixes low-risk and review-required work, the entire pull request requires human review. Prefer splitting it instead.
+| Failure point | Required location of the correction |
+| --- | --- |
+| Feature PR test or build failure | Original feature branch |
+| Review feedback on feature behavior | Original feature branch |
+| Feature branch conflict with newer `develop` | Original feature branch after reconciling `develop` |
+| Failure first appearing after merge to `develop` | New focused integration-fix branch from `develop` |
+| Development delivery artifact failure caused by code | Integration-fix branch from `develop` |
+| Transient GitHub Actions or connector failure | Retry and document; do not change code without evidence |
+| Production defect | Hotfix branch from `main`, then reconcile to `develop` |
+| Credential, hosting, or external-service absence | `BLOCKED` with the exact approved provisioning action required |
 
-## Backlog maintenance
+## Pull request conventions
 
-The queue should remain small enough to understand. Large outcomes are epics with linked implementation issues. An epic tracks sequencing and success criteria but is not selected for implementation while it still contains multiple independently deliverable tasks.
+- Branch: `agent/issue-<number>-<short-slug>`.
+- Ordinary PR base: `develop`.
+- Promotion PR: head `develop`, base `main`.
+- Hotfix PR: issue branch created from `main`, base `main`, title begins `Hotfix:`.
+- PR title: concise imperative description.
+- PR body includes `Closes #<number>` when merge should close the issue.
+- One issue per PR unless an issue explicitly defines grouped work.
+- Draft PRs are preferred until CI is green and acceptance evidence is complete.
+- Parallel branches must not overlap files or behavior unless one is deliberately reconciled after the other merges.
+
+## CI and delivery requirements
+
+CI runs on PRs targeting `develop` or `main` and pushes to both branches.
+
+A PR is green only when every required job succeeds. A successful branch push produces traceable build evidence containing:
+
+- branch;
+- source commit;
+- workflow run;
+- build artifact identity;
+- validation results.
+
+An artifact is evidence of a build, not proof of public deployment. Public environments, credentials, or paid services require separate approved work.
+
+`develop` must be green before accepting more ordinary feature merges or opening a promotion PR.
+
+## Review and merge policy
+
+The agent may autonomously merge into `develop` only when the PR is focused, reversible, green, and clearly inside a low-risk class authorized by `AGENTS.md`.
+
+Human review remains required for:
+
+- changes to steering, authority, branch policy, or release behavior;
+- subjective visual acceptance;
+- Blender geometry, rigging, animation, materials, or generation behavior;
+- consequential architecture or product decisions;
+- security-sensitive behavior;
+- credentials, paid infrastructure, or external commitments;
+- destructive actions, migrations, or difficult-to-reverse changes;
+- ambiguous risk.
+
+Every `develop -> main` promotion requires human approval. No PR is autonomously merged into `main`.
+
+When a PR mixes low-risk and review-required work, the entire PR requires human review. Prefer splitting it.
+
+## Backlog and runtime feedback
+
+- Deduplicate runtime errors before creating new work.
+- Link defects to the release, commit, logs, and existing issue when known.
+- Treat a production incident as P0 only when impact justifies interruption of normal ordering.
+- A code-caused delivery or runtime failure creates or updates a defect issue; an infrastructure-only failure creates or updates an infrastructure issue.
+- Close epics only after verifying the user-visible outcome, not merely child issue closure.

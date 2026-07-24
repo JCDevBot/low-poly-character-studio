@@ -2,8 +2,9 @@ name: CI
 
 on:
   push:
-    branches: [main]
+    branches: [main, develop]
   pull_request:
+    branches: [main, develop]
   workflow_dispatch:
 
 permissions:
@@ -14,8 +15,44 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
+  branch-policy:
+    name: Validate delivery branch policy
+    runs-on: ubuntu-latest
+    steps:
+      - name: Validate pull request route
+        if: github.event_name == 'pull_request'
+        env:
+          BASE_REF: ${{ github.base_ref }}
+          HEAD_REF: ${{ github.head_ref }}
+          PR_TITLE: ${{ github.event.pull_request.title }}
+        run: |
+          set -euo pipefail
+
+          if [[ "$BASE_REF" == "develop" ]]; then
+            if [[ "$HEAD_REF" == "main" || "$HEAD_REF" == "develop" ]]; then
+              echo "Ordinary work must use a feature or fix branch and target develop."
+              exit 1
+            fi
+            exit 0
+          fi
+
+          if [[ "$BASE_REF" == "main" ]]; then
+            if [[ "$HEAD_REF" == "develop" ]]; then
+              exit 0
+            fi
+            if [[ "$HEAD_REF" == agent/issue-* && "$PR_TITLE" == Hotfix:* ]]; then
+              exit 0
+            fi
+            echo "Pull requests to main must be a develop promotion or an explicitly titled Hotfix from an agent/issue-* branch."
+            exit 1
+          fi
+
+          echo "Unsupported pull request target: $BASE_REF"
+          exit 1
+
   studio-build:
     name: Build Style Studio
+    needs: branch-policy
     runs-on: ubuntu-latest
     steps:
       - name: Check out repository
@@ -63,8 +100,36 @@ jobs:
       - name: Build Style Studio
         run: pnpm studio:build
 
+      - name: Write delivery metadata
+        if: github.event_name == 'push'
+        run: |
+          mkdir -p delivery-metadata
+          cat > delivery-metadata/build.json <<EOF
+          {
+            "repository": "${GITHUB_REPOSITORY}",
+            "branch": "${GITHUB_REF_NAME}",
+            "commit": "${GITHUB_SHA}",
+            "workflow": "${GITHUB_WORKFLOW}",
+            "runId": "${GITHUB_RUN_ID}",
+            "runAttempt": "${GITHUB_RUN_ATTEMPT}",
+            "runUrl": "${GITHUB_SERVER_URL}/${GITHUB_REPOSITORY}/actions/runs/${GITHUB_RUN_ID}"
+          }
+          EOF
+
+      - name: Upload branch delivery artifact
+        if: github.event_name == 'push'
+        uses: actions/upload-artifact@v4
+        with:
+          name: style-studio-${{ github.ref_name }}-${{ github.sha }}
+          path: |
+            apps/style-studio/dist
+            delivery-metadata/build.json
+          if-no-files-found: error
+          retention-days: 30
+
   source-validation:
     name: Validate scripts
+    needs: branch-policy
     runs-on: ubuntu-latest
     steps:
       - name: Check out repository
@@ -95,6 +160,7 @@ jobs:
 
   blender-rig-smoke:
     name: Blender rig and animation smoke test
+    needs: branch-policy
     runs-on: ubuntu-latest
     timeout-minutes: 30
     steps:
