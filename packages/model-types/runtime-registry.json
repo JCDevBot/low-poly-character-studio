@@ -1,0 +1,25 @@
+{
+  "schema": "model-type-runtime-registry/v1",
+  "modelTypes": {
+    "humanoid/chibi-v1": {
+      "version": "1.0.0",
+      "model": {
+        "implementationId": "humanoid-chibi-generator-v1",
+        "script": "packages/asset-compiler/blender/scripts/build_humanoid_job.py"
+      },
+      "rig": {
+        "implementationId": "humanoid-basic-rig-v1",
+        "rigId": "humanoid-basic-v1",
+        "script": "packages/asset-compiler/blender/scripts/build_humanoid_rig_job.py"
+      },
+      "animation": {
+        "implementationId": "humanoid-animation-pack-v1",
+        "packId": "humanoid-basic-v1/default-v1",
+        "script": "packages/asset-compiler/blender/scripts/build_humanoid_animation_job.py"
+      },
+      "review": {
+        "script": "packages/asset-compiler/blender/scripts/render_animation_review.py"
+      }
+    }
+  }
+}
