@@ -101,11 +101,10 @@ function AnimationClipCatalog() {
 
       {status === 'ready' ? (
         <div>
-          <div role="list" aria-label="Available animation clips" style={{ display: 'flex', gap: 8, flexWrap: 'wrap', marginTop: 14 }}>
+          <div aria-label="Available animation clips" style={{ display: 'flex', gap: 8, flexWrap: 'wrap', marginTop: 14 }}>
             {clips.map((clip) => (
               <button
                 type="button"
-                role="listitem"
                 key={clip.name}
                 aria-pressed={selectedClip === clip.name}
                 onClick={() => {
