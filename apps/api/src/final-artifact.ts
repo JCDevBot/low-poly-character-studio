@@ -1,4 +1,4 @@
-import { copyFile, mkdir, readFile, writeFile } from 'node:fs/promises'
+import { mkdir, readFile, writeFile } from 'node:fs/promises'
 import path from 'node:path'
 import type { BuildJobManifest } from './build-jobs.js'
 import { BuildJobStore } from './build-jobs.js'
@@ -6,6 +6,16 @@ import { BuildJobStore } from './build-jobs.js'
 const GLB_MAGIC = 0x46546c67
 const GLB_VERSION = 2
 const JSON_CHUNK = 0x4e4f534a
+
+export interface EmbeddedBuildMetadata {
+  schema: 'low-poly-character-studio-build/v1'
+  jobId: string
+  modelTypeId: string
+  pipelineSchema: string
+  styleDnaSchema: string | null
+  generationSettings: unknown
+  sourceArtifact: string
+}
 
 export interface FinalGlbValidation {
   schema: 'final-glb-validation/v1'
@@ -18,6 +28,7 @@ export interface FinalGlbValidation {
   skinCount: number
   animationClips: string[]
   externalResources: string[]
+  embeddedMetadata: EmbeddedBuildMetadata | null
   errors: string[]
 }
 
@@ -44,11 +55,69 @@ function parseGlbJson(buffer: Buffer): Record<string, unknown> {
   return JSON.parse(buffer.subarray(20, 20 + jsonLength).toString('utf8').trim()) as Record<string, unknown>
 }
 
+function replaceGlbJson(buffer: Buffer, document: Record<string, unknown>) {
+  parseGlbJson(buffer)
+  const previousJsonLength = buffer.readUInt32LE(12)
+  const remainingChunks = buffer.subarray(20 + previousJsonLength)
+  const source = Buffer.from(JSON.stringify(document), 'utf8')
+  const paddedLength = Math.ceil(source.length / 4) * 4
+  const json = Buffer.alloc(paddedLength, 0x20)
+  source.copy(json)
+  const output = Buffer.alloc(20 + paddedLength + remainingChunks.length)
+  output.writeUInt32LE(GLB_MAGIC, 0)
+  output.writeUInt32LE(GLB_VERSION, 4)
+  output.writeUInt32LE(output.length, 8)
+  output.writeUInt32LE(paddedLength, 12)
+  output.writeUInt32LE(JSON_CHUNK, 16)
+  json.copy(output, 20)
+  remainingChunks.copy(output, 20 + paddedLength)
+  return output
+}
+
 function list(value: unknown): unknown[] {
   return Array.isArray(value) ? value : []
 }
 
-export function validateGlbBuffer(buffer: Buffer, sourceArtifact = 'artifact.glb'): FinalGlbValidation {
+function asObject(value: unknown): Record<string, unknown> | null {
+  return value && typeof value === 'object' && !Array.isArray(value) ? value as Record<string, unknown> : null
+}
+
+function readEmbeddedMetadata(document: Record<string, unknown>): EmbeddedBuildMetadata | null {
+  const asset = asObject(document.asset)
+  const extras = asObject(asset?.extras)
+  const metadata = asObject(extras?.lowPolyCharacterStudio)
+  if (metadata?.schema !== 'low-poly-character-studio-build/v1') return null
+  return metadata as unknown as EmbeddedBuildMetadata
+}
+
+function metadataErrors(actual: EmbeddedBuildMetadata | null, expected: EmbeddedBuildMetadata) {
+  if (!actual) return ['GLB is missing low-poly-character-studio-build/v1 metadata in asset.extras']
+  const errors: string[] = []
+  for (const key of ['jobId', 'modelTypeId', 'pipelineSchema', 'styleDnaSchema', 'sourceArtifact'] as const) {
+    if (actual[key] !== expected[key]) errors.push(`Embedded metadata ${key} does not match the build job`)
+  }
+  return errors
+}
+
+export function embedBuildMetadata(buffer: Buffer, metadata: EmbeddedBuildMetadata) {
+  const document = parseGlbJson(buffer)
+  const asset = asObject(document.asset) ?? {}
+  const extras = asObject(asset.extras) ?? {}
+  document.asset = {
+    ...asset,
+    extras: {
+      ...extras,
+      lowPolyCharacterStudio: metadata
+    }
+  }
+  return replaceGlbJson(buffer, document)
+}
+
+export function validateGlbBuffer(
+  buffer: Buffer,
+  sourceArtifact = 'artifact.glb',
+  expectedMetadata?: EmbeddedBuildMetadata
+): FinalGlbValidation {
   const errors: string[] = []
   let document: Record<string, unknown> = {}
   try {
@@ -57,7 +126,7 @@ export function validateGlbBuffer(buffer: Buffer, sourceArtifact = 'artifact.glb
     errors.push(error instanceof Error ? error.message : String(error))
   }
 
-  const asset = document.asset && typeof document.asset === 'object' ? document.asset as Record<string, unknown> : {}
+  const asset = asObject(document.asset) ?? {}
   const gltfVersion = typeof asset.version === 'string' ? asset.version : null
   if (gltfVersion !== '2.0') errors.push(`Expected glTF asset version 2.0, received ${gltfVersion ?? 'missing'}`)
 
@@ -85,6 +154,9 @@ export function validateGlbBuffer(buffer: Buffer, sourceArtifact = 'artifact.glb
   if (!skins.length) errors.push('GLB contains no skins')
   if (!animations.length) errors.push('GLB contains no animation clips')
 
+  const embeddedMetadata = readEmbeddedMetadata(document)
+  if (expectedMetadata) errors.push(...metadataErrors(embeddedMetadata, expectedMetadata))
+
   return {
     schema: 'final-glb-validation/v1',
     valid: errors.length === 0,
@@ -96,6 +168,7 @@ export function validateGlbBuffer(buffer: Buffer, sourceArtifact = 'artifact.glb
     skinCount: skins.length,
     animationClips,
     externalResources,
+    embeddedMetadata,
     errors
   }
 }
@@ -105,6 +178,20 @@ function requireAnimatedGlb(job: BuildJobManifest) {
   const artifact = 'artifacts/animate/humanoid-animated.glb'
   if (!job.stages.animate.artifacts.includes(artifact)) throw new Error(`Animate stage is missing required finalization input ${artifact}`)
   return artifact
+}
+
+function buildEmbeddedMetadata(job: BuildJobManifest, sourceArtifact: string): EmbeddedBuildMetadata {
+  const input = asObject(job.input)
+  const styleDna = asObject(input?.styleDna)
+  return {
+    schema: 'low-poly-character-studio-build/v1',
+    jobId: job.id,
+    modelTypeId: job.modelTypeId,
+    pipelineSchema: job.schema,
+    styleDnaSchema: typeof styleDna?.schema === 'string' ? styleDna.schema : null,
+    generationSettings: input?.generationSettings ?? null,
+    sourceArtifact
+  }
 }
 
 export async function finalizeHumanoidGlb(options: {
@@ -122,9 +209,11 @@ export async function finalizeHumanoidGlb(options: {
   const validationArtifact = 'artifacts/validate/final-glb-validation.json'
   const exportArtifact = 'artifacts/export/humanoid-final.glb'
   const metadataArtifact = 'artifacts/export/final-artifact.json'
+  const embeddedMetadata = buildEmbeddedMetadata(job, sourceArtifact)
 
   await options.jobs.startStage(job.id, 'validate')
-  const validation = validateGlbBuffer(await readFile(sourcePath), sourceArtifact)
+  const exportedBuffer = embedBuildMetadata(await readFile(sourcePath), embeddedMetadata)
+  const validation = validateGlbBuffer(exportedBuffer, exportArtifact, embeddedMetadata)
   await mkdir(path.join(jobDir, 'artifacts', 'validate'), { recursive: true })
   await writeFile(path.join(jobDir, validationArtifact), `${JSON.stringify(validation, null, 2)}\n`, 'utf8')
   if (!validation.valid) {
@@ -139,7 +228,7 @@ export async function finalizeHumanoidGlb(options: {
 
   await options.jobs.startStage(job.id, 'export')
   await mkdir(path.join(jobDir, 'artifacts', 'export'), { recursive: true })
-  await copyFile(sourcePath, path.join(jobDir, exportArtifact))
+  await writeFile(path.join(jobDir, exportArtifact), exportedBuffer)
   const metadata: FinalArtifactMetadata = {
     schema: 'final-artifact/v1',
     jobId: job.id,
