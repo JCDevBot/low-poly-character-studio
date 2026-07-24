@@ -11,6 +11,7 @@
     "studio:build": "pnpm --filter @low-poly-character-studio/style-studio build",
     "model-types:test": "pnpm --filter @low-poly-character-studio/api exec tsx ../../packages/model-types/test/registry.test.ts",
     "pipeline-contracts:test": "pnpm --filter @low-poly-character-studio/api exec tsx ../../packages/pipeline-contracts/test/artifacts.test.ts",
+    "semantic-analysis:test": "pnpm --filter @low-poly-character-studio/api exec tsx ../../packages/reference-analysis/test/index.test.ts",
     "build-jobs:test": "pnpm --filter @low-poly-character-studio/api test:build-jobs",
     "reference-analysis:test": "pnpm --filter @low-poly-character-studio/api exec tsx ../../apps/style-studio/src/reference-analysis.test.ts",
     "model-runner:test": "pnpm --filter @low-poly-character-studio/api test:model-runner",
