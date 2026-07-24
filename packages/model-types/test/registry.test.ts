@@ -37,6 +37,16 @@ test("humanoid manifest defines required and optional reference slots", () => {
   );
 });
 
+test("humanoid manifest declares expected parts and stable planners", () => {
+  const manifest = modelTypeRegistry.require("humanoid/chibi-v1");
+  assert.ok(manifest.expectedParts?.some((part) => part.id === "body" && part.parentId === null));
+  assert.ok(manifest.expectedParts?.some((part) => part.id === "hair" && part.deformationRole === "presentation"));
+  assert.equal(manifest.implementations?.modelPlanner, "humanoid-chibi-model-plan-v1");
+  assert.equal(manifest.implementations?.rigPlanner, "humanoid-basic-rig-plan-v1");
+  assert.equal(manifest.implementations?.animationPlanner, "humanoid-basic-animation-plan-v1");
+  assert.deepEqual(manifest.implementations?.validation, ["humanoid-structure-v1", "gltf-2.0-v1"]);
+});
+
 test("humanoid manifest preserves the approved gold-standard constraints", () => {
   const goldStandard = modelTypeRegistry.require("humanoid/chibi-v1").goldStandard;
   assert.ok(goldStandard);
