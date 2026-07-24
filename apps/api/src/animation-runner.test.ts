@@ -1,9 +1,9 @@
 import assert from 'node:assert/strict'
-import { mkdtemp, rm } from 'node:fs/promises'
+import { mkdir, mkdtemp, rm, writeFile } from 'node:fs/promises'
 import os from 'node:os'
 import path from 'node:path'
 import { BuildJobStore } from './build-jobs.js'
-import { runHumanoidAnimationStage } from './animation-runner.js'
+import { readAnimationMetadata, runHumanoidAnimationStage } from './animation-runner.js'
 
 const workspace = await mkdtemp(path.join(os.tmpdir(), 'low-poly-animation-runner-'))
 
@@ -39,6 +39,25 @@ try {
   assert.equal(invocation?.cwd, '/project')
   assert.ok(invocation?.args.some(argument => argument.endsWith('/build_humanoid_animation_job.py')))
   assert.ok(invocation?.args.includes('--input-blend'))
+
+  const metadataDir = path.join(workspace, job.id, 'artifacts', 'animate')
+  await mkdir(metadataDir, { recursive: true })
+  await writeFile(path.join(metadataDir, 'animation-metadata.json'), JSON.stringify({
+    schema: 'humanoid-animation-pack/v1',
+    packId: 'humanoid-basic-v1/default-v1',
+    rigId: 'humanoid-basic-v1',
+    fps: 24,
+    jobId: job.id,
+    modelTypeId: 'humanoid/chibi-v1',
+    clips: [
+      { name: 'a-pose', startFrame: 1, endFrame: 1, durationSeconds: 0, loop: false, rootMotion: false, targetJoints: ['upper_arm.L'] },
+      { name: 'idle', startFrame: 1, endFrame: 49, durationSeconds: 2, loop: true, rootMotion: false, targetJoints: ['hips'] },
+      { name: 'walk', startFrame: 1, endFrame: 25, durationSeconds: 1, loop: true, rootMotion: false, targetJoints: ['thigh.L'] },
+      { name: 'wave', startFrame: 1, endFrame: 49, durationSeconds: 2, loop: false, rootMotion: false, targetJoints: ['hand.R'] }
+    ]
+  }))
+  const metadata = await readAnimationMetadata({ jobId: job.id, jobs, buildWorkspace: workspace })
+  assert.deepEqual(metadata.clips.map(clip => clip.name), ['a-pose', 'idle', 'walk', 'wave'])
 
   const unrigged = await jobs.create({ modelTypeId: 'humanoid/chibi-v1' })
   await assert.rejects(
