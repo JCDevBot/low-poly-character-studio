@@ -5,7 +5,7 @@ import path from 'node:path'
 import { BuildJobStore } from './build-jobs.js'
 import { runHumanoidModelStage } from './model-runner.js'
 import { runHumanoidRigStage } from './rig-runner.js'
-import { runHumanoidAnimationStage } from './animation-runner.js'
+import { readAnimationMetadata, runHumanoidAnimationStage } from './animation-runner.js'
 
 const app = express()
 app.use(cors())
@@ -61,6 +61,13 @@ app.get('/jobs/:id', async (req, res) => {
 app.get('/jobs/:id/artifacts', async (req, res) => {
   try { res.json({ ok: true, artifacts: await jobs.listArtifacts(req.params.id) }) }
   catch (error) { sendError(res, error, 404) }
+})
+
+app.get('/jobs/:id/animations', async (req, res) => {
+  try {
+    const metadata = await readAnimationMetadata({ jobId: req.params.id, jobs, buildWorkspace })
+    res.json({ ok: true, metadata, clips: metadata.clips })
+  } catch (error) { sendError(res, error, 404) }
 })
 
 app.post('/jobs/:id/stages/model/run', async (req, res) => {
