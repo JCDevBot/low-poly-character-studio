@@ -152,6 +152,19 @@ Use layered checks:
 
 GitHub-hosted CI should validate code that does not require Blender first. A dedicated Blender-capable runner or container can be introduced as a separate task.
 
-## Deployment direction
+## Delivery direction
 
-CI runs on every pull request and push to `main`. Initial continuous delivery creates versioned Studio build artifacts on Git tags. Public hosting and a production Blender worker are separate infrastructure decisions and require explicit review before credentials or paid services are introduced.
+The repository uses two long-lived branches:
+
+- `main`: default branch and production source of truth.
+- `develop`: integration branch and source for ordinary feature and fix work.
+
+Ordinary issue branches start from current `develop` and target `develop`. CI runs on pull requests targeting either long-lived branch and on pushes to both branches.
+
+A green push to `develop` or `main` produces a versioned Studio build artifact containing the exact branch, commit, workflow run, and built distribution. This artifact is delivery evidence for that commit; it is not proof of public deployment.
+
+Production promotion is a reviewed pull request from `develop` to `main`. CI validates the combined promotion result, but does not silently merge it or bypass human approval. Production hotfixes branch from `main`, target `main`, and must be reconciled back into `develop` before ordinary work resumes.
+
+The full feature, integration, promotion, and hotfix contract is defined in `docs/delivery-workflow.md`.
+
+Public hosting, a production Blender worker, cloud storage, credentials, and paid services remain separate infrastructure decisions. They require explicit review and must define immutable artifact promotion, secrets, health checks, monitoring, and rollback or forward-fix behavior before deployment claims are made.
