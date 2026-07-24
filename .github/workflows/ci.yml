@@ -133,7 +133,7 @@ jobs:
         run: python3 packages/asset-compiler/blender/tests/test_style_dna.py
 
       - name: Test manifest compiler contracts without Blender
-        run: pnpm manifest-compiler:test
+        run: python3 packages/asset-compiler/compiler/test_manifest_contract.py
 
       - name: Test humanoid rig contracts
         run: python3 packages/asset-compiler/blender/tests/test_rig_contract.py
