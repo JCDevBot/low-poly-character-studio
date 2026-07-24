@@ -40,5 +40,7 @@ export interface ModelTypeManifest {
   rig: string | null;
   animations: readonly string[];
   output: readonly OutputFormat[];
+  examples?: readonly string[];
+  limitations?: readonly string[];
   goldStandard?: ModelTypeGoldStandard;
 }

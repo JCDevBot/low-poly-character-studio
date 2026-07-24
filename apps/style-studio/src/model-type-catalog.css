@@ -1,0 +1,209 @@
+.modelCatalog {
+  min-height: 100dvh;
+  padding: 32px;
+  background: #0d111b;
+  color: #f7f7fb;
+  overflow: auto;
+}
+
+.modelCatalogHero {
+  max-width: 1180px;
+  margin: 0 auto 24px;
+}
+
+.modelCatalogEyebrow {
+  color: #aeb8d6;
+  font-size: 0.78rem;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+}
+
+.modelCatalogHero h1 {
+  margin: 8px 0;
+  font-size: clamp(2rem, 4vw, 3.4rem);
+}
+
+.modelCatalogHero p,
+.modelTypeCard p,
+.modelTypeDetail p {
+  color: #b7bfd6;
+}
+
+.modelCatalogLayout {
+  display: grid;
+  grid-template-columns: minmax(320px, 1fr) minmax(360px, 0.85fr);
+  gap: 24px;
+  max-width: 1180px;
+  margin: 0 auto;
+}
+
+.modelCatalogGrid {
+  display: grid;
+  gap: 14px;
+  align-content: start;
+}
+
+.modelTypeCard {
+  display: grid;
+  gap: 8px;
+  width: 100%;
+  padding: 20px;
+  border: 1px solid #303a54;
+  border-radius: 14px;
+  background: #171d2c;
+  color: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+
+.modelTypeCard:hover,
+.modelTypeCard.selected {
+  border-color: #96a8e8;
+  background: #1d2538;
+}
+
+.modelTypeCard strong {
+  font-size: 1.25rem;
+}
+
+.modelTypeCard small,
+.modelTypeDetail code {
+  color: #98a4c6;
+}
+
+.modelStatus {
+  width: fit-content;
+  padding: 4px 8px;
+  border-radius: 999px;
+  font-size: 0.72rem;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
+.modelStatus.available { background: #173e31; color: #98efc9; }
+.modelStatus.experimental { background: #493b16; color: #f8d77c; }
+.modelStatus.planned { background: #343a4a; color: #c7cee3; }
+
+.modelCapabilityRow {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.modelCapabilityRow span {
+  padding: 4px 7px;
+  border-radius: 6px;
+  background: #252d43;
+  color: #dce3f8;
+  font-size: 0.72rem;
+}
+
+.modelTypeDetail {
+  display: grid;
+  gap: 20px;
+  align-content: start;
+  padding: 24px;
+  border: 1px solid #303a54;
+  border-radius: 16px;
+  background: #151b29;
+}
+
+.modelTypeDetailHeading {
+  display: flex;
+  justify-content: space-between;
+  gap: 20px;
+  align-items: flex-start;
+}
+
+.modelTypeDetail h2,
+.modelTypeDetail h3 {
+  margin: 8px 0;
+}
+
+.startModelButton {
+  padding: 10px 14px;
+  border: 0;
+  border-radius: 9px;
+  background: #f1c94b;
+  color: #17130a;
+  font-weight: 800;
+  cursor: pointer;
+}
+
+.startModelButton:disabled {
+  background: #343a4a;
+  color: #9aa3bd;
+  cursor: not-allowed;
+}
+
+.modelReferenceList {
+  display: grid;
+  gap: 8px;
+  padding: 0;
+  list-style: none;
+}
+
+.modelReferenceList li {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  gap: 4px 12px;
+  padding: 10px 0;
+  border-bottom: 1px solid #293149;
+}
+
+.modelReferenceList p {
+  grid-column: 1 / -1;
+  margin: 0;
+}
+
+.modelFacts {
+  display: grid;
+  gap: 8px;
+  margin: 0;
+}
+
+.modelFacts div {
+  display: grid;
+  grid-template-columns: 100px 1fr;
+  gap: 12px;
+}
+
+.modelFacts dt { color: #98a4c6; }
+.modelFacts dd { margin: 0; }
+
+.catalogSelectedWorkflow {
+  display: flex;
+  flex-direction: column;
+  width: 100%;
+  height: 100%;
+  min-height: 0;
+  overflow: hidden;
+}
+
+.catalogSelectedWorkflow .referenceWorkspace {
+  flex: 1 1 auto;
+  min-height: 0;
+}
+
+.catalogReturnBar {
+  flex: 0 0 auto;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 12px;
+  padding: 8px 14px;
+  border-bottom: 1px solid #303a54;
+  background: #111725;
+  color: #e8ecf8;
+}
+
+.catalogReturnBar button {
+  padding: 7px 10px;
+}
+
+@media (max-width: 860px) {
+  .modelCatalog { padding: 18px; }
+  .modelCatalogLayout { grid-template-columns: 1fr; }
+  .modelTypeDetailHeading { flex-direction: column; }
+}

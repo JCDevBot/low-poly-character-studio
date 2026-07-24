@@ -1,11 +1,6 @@
 import React from 'react'
 import { createRoot } from 'react-dom/client'
-import { App } from './App'
-import { ReferenceWorkspace } from './ReferenceWorkspace'
+import { StudioShell } from './StudioShell'
 import './styles.css'
 
-createRoot(document.getElementById('root')!).render(
-  <ReferenceWorkspace>
-    <App />
-  </ReferenceWorkspace>
-)
+createRoot(document.getElementById('root')!).render(<StudioShell />)
