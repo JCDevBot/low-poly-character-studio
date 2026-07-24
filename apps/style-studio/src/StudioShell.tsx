@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from 'react'
 import type { ModelTypeManifest } from '../../../packages/model-types/src/types'
+import { AnimationClipCatalog } from './AnimationClipCatalog'
 import { App } from './App'
 import { ModelTypeCatalog } from './ModelTypeCatalog'
 import { ReferenceWorkspace } from './ReferenceWorkspace'
@@ -23,6 +24,7 @@ function StudioShell() {
       </div>
       <ReferenceWorkspace>
         <App />
+        {selected.capabilities.animated ? <AnimationClipCatalog /> : null}
       </ReferenceWorkspace>
     </div>
   )
