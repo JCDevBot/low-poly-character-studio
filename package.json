@@ -18,6 +18,7 @@
     "model-runner:test": "pnpm --filter @low-poly-character-studio/api test:model-runner",
     "rig-runner:test": "pnpm --filter @low-poly-character-studio/api test:rig-runner",
     "animation-runner:test": "pnpm --filter @low-poly-character-studio/api test:animation-runner",
+    "final-artifact:test": "pnpm --filter @low-poly-character-studio/api test:final-artifact",
     "animation-pack:test": "python3 packages/asset-compiler/blender/tests/test_animation_pack.py",
     "blender:setup": "bash scripts/setup-blender.sh",
     "rig-review": "bash scripts/render-rig-review.sh",
