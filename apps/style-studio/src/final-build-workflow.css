@@ -1,0 +1,141 @@
+.finalWorkflowLauncher {
+  position: fixed;
+  right: 18px;
+  bottom: 18px;
+  z-index: 40;
+  padding: 11px 15px;
+  border: 1px solid #f2ca4c;
+  border-radius: 999px;
+  background: #5a4513;
+  color: #fff4b8;
+  font-weight: 800;
+  cursor: pointer;
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.4);
+}
+
+.finalWorkflowDrawer {
+  position: fixed;
+  z-index: 50;
+  top: 76px;
+  right: 16px;
+  bottom: 16px;
+  width: min(520px, calc(100vw - 32px));
+  overflow: auto;
+  padding: 16px;
+  border: 1px solid #46506c;
+  border-radius: 14px;
+  background: #151823;
+  box-shadow: 0 18px 60px rgba(0, 0, 0, 0.62);
+  scrollbar-gutter: stable;
+}
+
+.finalWorkflowDrawer > header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 16px;
+  padding-bottom: 12px;
+  border-bottom: 1px solid #30374d;
+}
+
+.finalWorkflowDrawer h2,
+.finalWorkflowDrawer h3 { margin: 0; }
+.finalWorkflowDrawer header p { margin-top: 5px; font-size: 13px; }
+
+.finalWorkflowDrawer button,
+.finalDownload {
+  padding: 9px 11px;
+  border: 1px solid #3a425c;
+  border-radius: 8px;
+  background: #24293a;
+  color: #fff;
+  font: inherit;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.finalWorkflowDrawer button:disabled { cursor: progress; opacity: 0.6; }
+.finalWorkflowDrawer button.active { border-color: #f2ca4c; background: #453819; }
+
+.finalWorkflowActions {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 8px;
+  margin-top: 14px;
+}
+
+.finalWorkflowActions .primary { margin: 0; }
+.finalWorkflowStatus { margin: 12px 0 0; padding: 10px; border-radius: 8px; background: #1b1f2d; }
+.finalWorkflowStatus.running { color: #ffe49a; }
+.finalWorkflowStatus.success { color: #a7f3b0; }
+.finalWorkflowStatus.error,
+.finalWorkflowError { color: #ffb4a8; }
+.finalWorkflowJob { font-size: 12px; overflow-wrap: anywhere; }
+
+.finalStageList {
+  display: grid;
+  gap: 6px;
+  margin: 14px 0;
+  padding: 0;
+  list-style: none;
+}
+
+.finalStageList li {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 4px 12px;
+  align-items: center;
+  padding: 8px 10px;
+  border: 1px solid #30374d;
+  border-radius: 8px;
+  background: #1b1f2d;
+  text-transform: capitalize;
+}
+
+.finalStageList li[data-status="completed"] { border-color: #3f7651; }
+.finalStageList li[data-status="running"] { border-color: #8a6b20; }
+.finalStageList li[data-status="failed"] { border-color: #9b4b45; }
+.finalStageList small { grid-column: 1 / -1; color: #ffb4a8; text-transform: none; }
+
+.finalPreviewSection {
+  overflow: hidden;
+  border: 1px solid #30374d;
+  border-radius: 12px;
+  background: #0d0f15;
+}
+
+.finalGlbPreview { width: 100%; height: 330px; }
+.finalClipControls { display: flex; gap: 7px; flex-wrap: wrap; padding: 10px; border-top: 1px solid #30374d; }
+.finalWorkflowError { padding: 0 10px 10px; }
+
+.finalValidation {
+  margin-top: 14px;
+  padding: 12px;
+  border: 1px solid #30374d;
+  border-radius: 10px;
+  background: #1b1f2d;
+}
+
+.finalValidation.valid { border-color: #3f7651; }
+.finalValidation.invalid { border-color: #9b4b45; }
+.finalValidation dl { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; margin: 12px 0 0; }
+.finalValidation dl > div { padding: 8px; border-radius: 7px; background: #11131a; }
+.finalValidation dt { color: #9ca9cb; font-size: 11px; text-transform: uppercase; letter-spacing: 0.08em; }
+.finalValidation dd { margin: 3px 0 0; font-weight: 800; }
+.finalValidation ul { margin-bottom: 0; color: #ffb4a8; }
+
+.finalDownload {
+  display: block;
+  margin-top: 14px;
+  border-color: #f2ca4c;
+  background: #5a4513;
+  color: #fff4b8;
+  text-align: center;
+  text-decoration: none;
+}
+
+@media (max-width: 650px) {
+  .finalWorkflowDrawer { top: 12px; }
+  .finalWorkflowActions { grid-template-columns: 1fr; }
+  .finalValidation dl { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+}
