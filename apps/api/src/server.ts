@@ -6,7 +6,7 @@ import { BuildJobStore } from './build-jobs.js'
 import { runHumanoidModelStage } from './model-runner.js'
 import { runHumanoidRigStage } from './rig-runner.js'
 import { readAnimationMetadata, runHumanoidAnimationStage } from './animation-runner.js'
-import { finalizeHumanoidGlb, readFinalArtifact } from './final-artifact.js'
+import { finalizeHumanoidGlb, readFinalArtifact, readFinalValidation } from './final-artifact.js'
 
 const app = express()
 app.use(cors())
@@ -101,8 +101,12 @@ app.post('/jobs/:id/stages/finalize/run', async (req, res) => {
 
 app.get('/jobs/:id/final', async (req, res) => {
   try {
-    const metadata = await readFinalArtifact({ jobId: req.params.id, jobs, buildWorkspace })
-    res.json({ ok: true, metadata })
+    const options = { jobId: req.params.id, jobs, buildWorkspace }
+    const [metadata, validation] = await Promise.all([
+      readFinalArtifact(options),
+      readFinalValidation(options)
+    ])
+    res.json({ ok: true, metadata, validation })
   } catch (error) { sendError(res, error, 404) }
 })
 
