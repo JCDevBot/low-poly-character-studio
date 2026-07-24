@@ -42,6 +42,9 @@ jobs:
       - name: Test reference analysis
         run: pnpm reference-analysis:test
 
+      - name: Test animation clip catalog
+        run: pnpm animation-catalog:test
+
       - name: Test humanoid model runner
         run: pnpm model-runner:test
 
