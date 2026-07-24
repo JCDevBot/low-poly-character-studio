@@ -14,6 +14,26 @@ export interface ModelTypeCapabilities {
   materials: boolean;
 }
 
+export interface ModelTypeExpectedPart {
+  id: string;
+  label: string;
+  required: boolean;
+  parentId: string | null;
+  attachmentRole: "root" | "attached" | "surface";
+  deformationRole: "rigid" | "skinned" | "presentation";
+}
+
+export interface ModelTypePipelineImplementations {
+  classification: string | null;
+  viewAnalysis: string | null;
+  partObservation: string | null;
+  styleDnaPlanner: string | null;
+  modelPlanner: string | null;
+  rigPlanner: string | null;
+  animationPlanner: string | null;
+  validation: readonly string[];
+}
+
 export interface NumericRange {
   min: number;
   max: number;
@@ -37,6 +57,8 @@ export interface ModelTypeManifest {
   referenceSlots: readonly ModelTypeReferenceSlot[];
   analysisAdapter?: string | null;
   capabilities: ModelTypeCapabilities;
+  expectedParts?: readonly ModelTypeExpectedPart[];
+  implementations?: ModelTypePipelineImplementations;
   rig: string | null;
   animations: readonly string[];
   output: readonly OutputFormat[];
