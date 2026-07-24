@@ -2,7 +2,7 @@
 
 ## Source of truth
 
-GitHub Issues are the canonical task list. Pull requests are the canonical implementation and promotion record. Repository documentation defines product, engineering, branch, review, and delivery constraints.
+GitHub Issues are the canonical task list. Pull requests are the canonical implementation, synchronization, and promotion record. Repository documentation defines product, engineering, branch, review, and delivery constraints.
 
 Every agent run reconstructs state from GitHub. Chat history is not task storage.
 
@@ -13,6 +13,8 @@ Every agent run reconstructs state from GitHub. Chat history is not task storage
 - `agent/issue-<number>-<short-slug>`: issue branch for feature, defect, maintenance, integration-fix, spike, and hotfix work.
 
 Ordinary issue branches start from current `develop` and target `develop`. A hotfix branch starts from `main`, targets `main`, uses a PR title beginning `Hotfix:`, and is reconciled back into `develop` after merge.
+
+When `main` contains commits missing from `develop`, reconciliation uses a PR with head `main`, base `develop`, and a title beginning `Sync:`. A synchronization PR carries already-approved production history and is not an ordinary implementation branch.
 
 ## Issue title format
 
@@ -89,6 +91,15 @@ Constraints, relevant files, branch source, target branch, testing, evidence, an
 - Uses the narrowest safe change and required risk review.
 - After merge, the exact hotfix is reconciled into `develop` before ordinary work resumes.
 
+### Synchronization
+
+- Is a pull request with head `main`, base `develop`, and title beginning `Sync:`.
+- Is required whenever `main` contains commits missing from `develop`.
+- Contains only already-approved production history; conflicts or additional edits make it review-required.
+- Runs all required CI before merge.
+- Verifies after merge that `main` is an ancestor of `develop` and `develop` is green.
+- Does not need a new implementation issue when it only performs routine reconciliation, but any synchronization defect or conflict gets a focused issue.
+
 ### Promotion
 
 - Is a pull request from `develop` to `main`, not an ordinary implementation branch.
@@ -113,19 +124,19 @@ Constraints, relevant files, branch source, target branch, testing, evidence, an
 The agent selects and advances work deterministically:
 
 1. Complete the GitHub startup handshake in `AGENTS.md`.
-2. Inspect open PRs for CI failures, requested changes, merge conflicts, or incomplete evidence. Follow up before selecting unrelated work.
+2. Inspect open PRs for CI failures, requested changes, merge conflicts, incomplete evidence, pending promotion, or pending synchronization. Follow up before selecting unrelated work.
 3. Re-evaluate `BLOCKED` issues with objective GitHub dependencies. Move them to `READY` when every named prerequisite issue is closed and prerequisite PR is merged.
-4. If `main` contains commits missing from `develop`, synchronize `main -> develop` before new ordinary work.
+4. If `main` contains commits missing from `develop`, open or continue a `Sync:` PR from `main` to `develop`, merge it after green CI, and verify branch ancestry before new ordinary work.
 5. Continue the lowest-numbered open `IN PROGRESS` issue.
 6. Otherwise select the lowest priority number among `READY` issues with satisfied dependencies.
 7. Break priority ties by lower issue number.
 8. Change a newly selected issue to `IN PROGRESS` before editing.
 9. Work for up to roughly 45 minutes and complete an entire small issue when practical.
 10. Maintain at most two active implementation branches.
-11. Start a second issue only when the first waits exclusively on CI, review, or another non-interactive state and the tasks are independent and non-overlapping.
+11. Start a second implementation issue only when the first waits exclusively on CI, review, or another non-interactive state and the tasks are independent and non-overlapping.
 12. Do not begin a `BLOCKED` or `REVIEW` issue unless its state changed or its PR needs follow-up.
-13. After an authorized merge into `develop`, verify issue closure, integration CI, delivery evidence, and newly unblocked tasks.
-14. Do not invent work when the queue is empty. Create a new issue only for a clear defect, prerequisite, integration failure, or bounded follow-up found during approved work.
+13. After an authorized merge into `develop`, verify issue closure, integration CI, delivery evidence, branch ancestry, and newly unblocked tasks.
+14. Do not invent work when the queue is empty. Create a new issue only for a clear defect, prerequisite, integration failure, synchronization failure, or bounded follow-up found during approved work.
 
 A queued CI job is not a blocker. Continue useful independent inspection, documentation, artifact review, or eligible non-overlapping work.
 
@@ -159,9 +170,13 @@ When an issue is blocked, post:
 Before creating an ordinary branch:
 
 1. compare `main` and `develop`;
-2. when `main` is not an ancestor of `develop`, synchronize `main -> develop` through a normal merge or PR;
-3. verify `develop` CI;
-4. branch from the resulting `develop` head.
+2. when `main` contains commits missing from `develop`, create or continue a PR with head `main`, base `develop`, and title `Sync: <concise reason>`;
+3. require green route-policy and repository CI;
+4. merge the synchronization PR only when it contains no unreviewed conflict resolution or extra changes;
+5. verify `main` is an ancestor of `develop` and `develop` CI is green;
+6. branch from the resulting `develop` head.
+
+A `main -> develop` PR without the `Sync:` title must fail CI. Do not use force-pushes, direct history rewriting, or an unrelated feature branch as the normal synchronization mechanism.
 
 When `develop` advances while a feature branch is active:
 
@@ -180,21 +195,23 @@ When `develop` advances while a feature branch is active:
 | Feature branch conflict with newer `develop` | Original feature branch after reconciling `develop` |
 | Failure first appearing after merge to `develop` | New focused integration-fix branch from `develop` |
 | Development delivery artifact failure caused by code | Integration-fix branch from `develop` |
+| Synchronization route or conflict failure | Focused P0/P1 issue; do not hide edits inside the `Sync:` PR |
 | Transient GitHub Actions or connector failure | Retry and document; do not change code without evidence |
-| Production defect | Hotfix branch from `main`, then reconcile to `develop` |
+| Production defect | Hotfix branch from `main`, then `Sync:` reconciliation to `develop` |
 | Credential, hosting, or external-service absence | `BLOCKED` with the exact approved provisioning action required |
 
 ## Pull request conventions
 
 - Branch: `agent/issue-<number>-<short-slug>`.
 - Ordinary PR base: `develop`.
+- Synchronization PR: head `main`, base `develop`, title begins `Sync:`.
 - Promotion PR: head `develop`, base `main`.
 - Hotfix PR: issue branch created from `main`, base `main`, title begins `Hotfix:`.
-- PR title: concise imperative description.
+- PR title: concise imperative description, except required `Sync:` and `Hotfix:` prefixes.
 - PR body includes `Closes #<number>` when merge should close the issue.
 - One issue per PR unless an issue explicitly defines grouped work.
 - Draft PRs are preferred until CI is green and acceptance evidence is complete.
-- Parallel branches must not overlap files or behavior unless one is deliberately reconciled after the other merges.
+- Parallel implementation branches must not overlap files or behavior unless one is deliberately reconciled after the other merges.
 
 ## CI and delivery requirements
 
@@ -212,13 +229,18 @@ An artifact is evidence of a build, not proof of public deployment. Public envir
 
 `develop` must be green before accepting more ordinary feature merges or opening a promotion PR.
 
+Delivery routing is implemented by `scripts/validate-delivery-route.sh` and tested by `scripts/test-delivery-route.sh`. Changes to either are delivery-policy changes and require human review.
+
 ## Review and merge policy
 
 The agent may autonomously merge into `develop` only when the PR is focused, reversible, green, and clearly inside a low-risk class authorized by `AGENTS.md`.
 
+A routine green `Sync:` PR may merge autonomously only when it contains no conflicts or changes beyond already-approved `main` history.
+
 Human review remains required for:
 
 - changes to steering, authority, branch policy, or release behavior;
+- synchronization conflict resolution or additional edits;
 - subjective visual acceptance;
 - Blender geometry, rigging, animation, materials, or generation behavior;
 - consequential architecture or product decisions;
