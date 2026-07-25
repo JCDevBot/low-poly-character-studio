@@ -83,6 +83,17 @@ jobs:
       - name: Build Style Studio
         run: pnpm studio:build
 
+      - name: Capture responsive Studio review screenshots
+        run: bash scripts/capture-responsive-studio.sh
+
+      - name: Upload responsive Studio review evidence
+        uses: actions/upload-artifact@v4
+        with:
+          name: responsive-studio-review-${{ github.sha }}
+          path: image-analysis/output/responsive-studio
+          if-no-files-found: error
+          retention-days: 14
+
       - name: Write delivery metadata
         if: github.event_name == 'push'
         run: |
