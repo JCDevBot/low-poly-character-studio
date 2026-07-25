@@ -4,6 +4,7 @@ import { App } from './App'
 import { FinalBuildWorkflow } from './FinalBuildWorkflow'
 import { ModelTypeCatalog } from './ModelTypeCatalog'
 import { ReferenceWorkspace } from './ReferenceWorkspace'
+import './responsive-studio.css'
 
 function StudioShell() {
   const [selected, setSelected] = useState<ModelTypeManifest | null>(null)
@@ -17,14 +18,16 @@ function StudioShell() {
   if (!selected) return <ModelTypeCatalog onSelect={setSelected} />
 
   return (
-    <div className="catalogSelectedWorkflow">
-      <div className="catalogReturnBar">
-        <span><strong>{selected.name}</strong> · {selected.id}</span>
-        <button type="button" onClick={() => setSelected(null)}>Change model type</button>
-      </div>
+    <div className="catalogSelectedWorkflow studioApplicationShell">
+      <header className="catalogReturnBar studioGlobalHeader">
+        <span className="studioModelIdentity"><strong>{selected.name}</strong><small>{selected.id}</small></span>
+        <div className="studioGlobalActions">
+          <FinalBuildWorkflow modelTypeId={selected.id} />
+          <button type="button" onClick={() => setSelected(null)}>Change model type</button>
+        </div>
+      </header>
       <ReferenceWorkspace>
         <App />
-        <FinalBuildWorkflow modelTypeId={selected.id} />
       </ReferenceWorkspace>
     </div>
   )
