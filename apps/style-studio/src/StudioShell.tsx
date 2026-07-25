@@ -6,6 +6,7 @@ import { FinalBuildWorkflow } from './FinalBuildWorkflow'
 import { ModelTypeCatalog } from './ModelTypeCatalog'
 import { ReferenceWorkspace } from './ReferenceWorkspace'
 import './responsive-studio.css'
+import './responsive-studio-mobile.css'
 
 const MODEL_TYPE_STORAGE_KEY = 'low-poly-character-studio.model-type.v1'
 
