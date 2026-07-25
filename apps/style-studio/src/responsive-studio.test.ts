@@ -4,12 +4,20 @@ import test from 'node:test'
 
 const cssUrl = new URL('./responsive-studio.css', import.meta.url)
 const shellUrl = new URL('./StudioShell.tsx', import.meta.url)
+const referenceWorkspaceUrl = new URL('./ReferenceWorkspace.tsx', import.meta.url)
 
 test('Studio shell keeps build actions in the stable header', async () => {
   const source = await readFile(shellUrl, 'utf8')
   assert.match(source, /studioGlobalHeader/)
   assert.match(source, /studioGlobalActions[\s\S]*FinalBuildWorkflow/)
   assert.match(source, /ReferenceWorkspace>[\s\S]*<App \/>/)
+})
+
+test('Studio shell restores a registered model type from URL or local storage', async () => {
+  const source = await readFile(shellUrl, 'utf8')
+  assert.match(source, /new URLSearchParams\(window\.location\.search\)\.get\('modelType'\)/)
+  assert.match(source, /modelTypeRegistry\.get\(requestedId\)/)
+  assert.match(source, /localStorage\.getItem\(MODEL_TYPE_STORAGE_KEY\)/)
 })
 
 test('responsive contract makes the viewport first at desktop, tablet, and mobile widths', async () => {
@@ -25,4 +33,11 @@ test('reference and final-build surfaces do not consume permanent viewport layou
   assert.match(css, /\.finalWorkflowLauncher \{[\s\S]*position: static/)
   assert.match(css, /overflow: auto/)
   assert.match(css, /overscroll-behavior: contain/)
+})
+
+test('reference drawer starts collapsed and supports a reproducible expanded review URL', async () => {
+  const source = await readFile(referenceWorkspaceUrl, 'utf8')
+  assert.match(source, /get\('references'\) !== 'open'/)
+  assert.match(source, /useState\(referenceDrawerInitiallyCollapsed\)/)
+  assert.match(source, /collapsed \? 'referenceManager collapsed' : 'referenceManager'/)
 })
