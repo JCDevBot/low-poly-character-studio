@@ -2,9 +2,30 @@
 
 ## Source of truth
 
-GitHub Issues are the canonical task list. Pull requests are the canonical implementation, synchronization, and promotion record. Repository documentation defines product, engineering, branch, review, and delivery constraints.
+GitHub Issues are the canonical task list. Pull requests are the canonical implementation, synchronization, milestone, and promotion record. Repository documentation defines product, engineering, branch, review, and delivery constraints.
 
 Every agent run reconstructs state from GitHub. Chat history is not task storage.
+
+## Goal and milestone model
+
+A **goal** is a repository-defined outcome established by product vision, an epic or issue, or an explicit product-owner directive recorded in GitHub.
+
+A **task** is a bounded implementation unit required to advance that goal. Completing a task does not automatically create a human checkpoint.
+
+A **milestone** is a coherent, testable user-visible outcome for which human testing or feedback would materially guide acceptance, refinement, or the next goal.
+
+The normal cycle is:
+
+```text
+product owner defines goal and standards
+-> agent completes and integrates required tasks
+-> agent presents a testable milestone
+-> product owner accepts, refines, or defines the next goal
+```
+
+The agent should not request routine approval for task selection, implementation details, green CI, merges into `develop`, or individual issue completion.
+
+An explicit product-owner goal or priority override may supersede normal issue ordering. Record the override on the selected issue, identify any deferred issue, and treat the override as complete when the selected goal reaches a milestone, becomes genuinely blocked, or is superseded.
 
 ## Branch roles
 
@@ -18,7 +39,7 @@ When `main` contains commits missing from `develop`, reconciliation uses a PR wi
 
 ## Issue title format
 
-Every actionable issue title uses:
+Every actionable issue uses:
 
 ```text
 [STATE][PRIORITY] Imperative task title
@@ -28,8 +49,8 @@ Allowed states:
 
 - `READY`: acceptance criteria are clear, dependencies are satisfied, and work may begin.
 - `IN PROGRESS`: actively owned by the agent.
-- `REVIEW`: implementation and evidence are complete in a pull request.
-- `BLOCKED`: safe recovery is exhausted or a named decision, credential, environment, or dependency is required.
+- `REVIEW`: a meaningful milestone is ready for product-owner testing or a specifically named unresolved human decision is required.
+- `BLOCKED`: safe recovery is exhausted and a genuine exception prevents autonomous completion.
 
 Allowed priorities:
 
@@ -58,8 +79,10 @@ The bounded work included in this issue.
 Exact issue or pull request numbers, or `None`.
 
 ## Implementation notes
-Constraints, relevant files, branch source, target branch, testing, evidence, and human gates.
+Constraints, relevant files, branch source, target branch, testing, evidence, and genuine exceptions.
 ```
+
+When an issue is part of a larger goal, identify the parent outcome or milestone it advances.
 
 ## Task types
 
@@ -68,13 +91,14 @@ Constraints, relevant files, branch source, target branch, testing, evidence, an
 - Starts from `develop`.
 - Targets `develop`.
 - Feature-specific failures are corrected on the same issue branch.
-- A consequential product or visual change can be implemented fully but remains in `REVIEW` until approved.
+- May merge autonomously into `develop` when the intended outcome is already established, required checks pass, evidence is complete, and no genuine exception remains.
+- Visual or consequential implementation does not require a routine approval stop merely because of its category.
 
 ### Test, documentation, CI, contract, or maintenance task
 
 - Starts from `develop` and targets `develop`.
-- May be autonomously merged when clearly inside the low-risk authorization in `AGENTS.md`.
-- Steering, authority, branch-policy, and delivery-policy documentation is not routine documentation and requires human review.
+- May merge autonomously after required checks pass when no genuine exception remains.
+- Steering, authority, branch-policy, and delivery-policy changes require an explicit product-owner directive. Once that directive is recorded, the agent may implement and integrate the authorized change without a second routine approval request unless the implementation introduces a new unresolved decision.
 
 ### Integration fix
 
@@ -88,36 +112,37 @@ Constraints, relevant files, branch source, target branch, testing, evidence, an
 - Represents a production-impacting defect requiring a direct correction to `main`.
 - Starts from `main` and targets `main`.
 - PR title begins `Hotfix:`.
-- Uses the narrowest safe change and required risk review.
+- Uses the narrowest safe change and required unresolved-risk review.
 - After merge, the exact hotfix is reconciled into `develop` before ordinary work resumes.
 
 ### Synchronization
 
 - Is a pull request with head `main`, base `develop`, and title beginning `Sync:`.
 - Is required whenever `main` contains commits missing from `develop`.
-- Contains only already-approved production history; conflicts or additional edits make it review-required.
+- Contains only accepted production history whenever practical.
 - Runs all required CI before merge.
 - Verifies after merge that `main` is an ancestor of `develop` and `develop` is green.
-- Does not need a new implementation issue when it only performs routine reconciliation, but any synchronization defect or conflict gets a focused issue.
+- Does not need a new implementation issue when it only performs routine reconciliation, but any synchronization defect or unresolved conflict gets a focused issue.
 
 ### Promotion
 
 - Is a pull request from `develop` to `main`, not an ordinary implementation branch.
-- Includes the exact source and target commits, included issues, green CI, delivery artifact identity, known risks, and rollback or forward-fix guidance.
+- Includes exact source and target commits, included issues, green CI, delivery artifact identity, known risks, and rollback or forward-fix guidance.
 - Requires explicit human approval.
 - Does not hide unrelated or failing work inside a release batch.
 
 ### Epic
 
-- Tracks a coordinated outcome and child dependencies.
+- Tracks a coordinated goal or milestone and child dependencies.
 - Is not selected as one implementation task while independently deliverable children remain open.
-- Closes only after child completion and outcome verification.
+- Closes only after the user-visible outcome is verified.
 
 ### Exploratory spike
 
 - Has a strict time box and a knowledge, prototype, or decision-record outcome.
 - Avoids production coupling unless the issue explicitly authorizes it.
 - Separates learned facts, remaining unknowns, recommendation, and follow-up implementation work.
+- Uses a safe reversible experiment to reduce uncertainty before escalating a decision.
 
 ## Selection and execution rules
 
@@ -129,41 +154,71 @@ The agent selects and advances work deterministically:
 4. If `main` contains commits missing from `develop`, open or continue a `Sync:` PR from `main` to `develop`, merge it after green CI, and verify branch ancestry before new ordinary work.
 5. Continue the lowest-numbered open `IN PROGRESS` issue.
 6. Otherwise select the lowest priority number among `READY` issues with satisfied dependencies.
-7. Break priority ties by lower issue number.
+7. Break priority ties by lower issue number unless a recorded product-owner goal override applies.
 8. Change a newly selected issue to `IN PROGRESS` before editing.
 9. Work for up to roughly 45 minutes and complete an entire small issue when practical.
 10. Maintain at most two active implementation branches.
-11. Start a second implementation issue only when the first waits exclusively on CI, review, or another non-interactive state and the tasks are independent and non-overlapping.
-12. Do not begin a `BLOCKED` or `REVIEW` issue unless its state changed or its PR needs follow-up.
-13. After an authorized merge into `develop`, verify issue closure, integration CI, delivery evidence, branch ancestry, and newly unblocked tasks.
-14. Do not invent work when the queue is empty. Create a new issue only for a clear defect, prerequisite, integration failure, synchronization failure, or bounded follow-up found during approved work.
+11. Start a second active implementation issue only when the first waits exclusively on CI, an external dependency, or another non-interactive state and the tasks are independent and non-overlapping.
+12. A complete green PR waiting only for milestone-level human testing does not consume active implementation capacity until feedback requires changes.
+13. Do not begin a `BLOCKED` or `REVIEW` issue unless its state changed, its PR needs follow-up, or the named human decision has been supplied.
+14. When an issue satisfies acceptance criteria and no genuine exception remains, merge its focused green PR into `develop`, close or verify the issue, and continue.
+15. After integration, verify CI, delivery evidence, branch ancestry, and newly unblocked tasks.
+16. Continue through the tasks required for the current goal until a coherent milestone is complete, a genuine exception occurs, time expires, or no eligible work remains.
+17. Do not invent work when the queue is empty. Create a new issue only for a clear defect, prerequisite, integration failure, synchronization failure, or bounded follow-up found during approved work.
 
 A queued CI job is not a blocker. Continue useful independent inspection, documentation, artifact review, or eligible non-overlapping work.
 
 ## State transitions
 
+The normal task path is:
+
 ```text
-READY -> IN PROGRESS -> REVIEW -> closed
-                  \-> BLOCKED -> READY
+READY -> IN PROGRESS -> closed
+                   \-> REVIEW -> IN PROGRESS or closed
+                   \-> BLOCKED -> READY
 ```
 
-Move an issue from `REVIEW` back to `IN PROGRESS` when its PR fails CI, receives required changes, conflicts with the target branch, or no longer satisfies acceptance criteria.
+Use `REVIEW` only when:
 
-Before changing an issue to `REVIEW`, link the PR and post:
+- an integrated coherent milestone is ready for product-owner testing or acceptance; or
+- a specifically named consequential decision cannot be resolved from repository steering, acceptance criteria, prior direction, or a safe reversible experiment.
 
-- concise implementation summary;
+Move an issue from `REVIEW` back to `IN PROGRESS` when feedback requires changes, its PR fails CI, it conflicts with the target branch, or it no longer satisfies acceptance criteria.
+
+Before changing an issue to `REVIEW`, link the relevant PR or integrated build and post:
+
+- the coherent outcome available to test;
+- exact testing instructions;
 - checks performed and results;
 - generated or delivery artifacts inspected;
-- known limitations and follow-up issues;
-- exact human decision required, when applicable.
+- known limitations and unresolved subjective questions;
+- the precise decision requested and why further autonomous work would not materially improve it.
 
 When an issue is blocked, post:
 
 - the exact failure or missing requirement;
 - troubleshooting steps and retries already attempted;
-- why the agent cannot resolve it safely;
+- why the condition satisfies the genuine-exception definition;
 - the smallest action needed to unblock it;
-- exact issue, PR, credential, environment, or decision dependency.
+- exact issue, PR, credential, environment, external actor, or decision dependency.
+
+Before closing an implementation issue, record the focused PR, checks, evidence, limitations, and parent goal advanced when that information is not already clear from the PR.
+
+## Genuine exceptions
+
+A genuine exception exists only when the next required action depends on:
+
+- unavailable access, credentials, environment, or an external actor;
+- contradictory steering or acceptance criteria;
+- a consequential unresolved product or architecture decision;
+- credentials, secrets, spending, paid infrastructure, legal or external commitments;
+- public production deployment requiring approval;
+- destructive, difficult-to-reverse, migration, or history-rewriting work not already authorized;
+- security-sensitive behavior with unresolved material risk.
+
+Category alone is not an exception. Architecture, Blender, geometry, rigging, animation, materials, generation, and visual work may integrate into `develop` when the intended outcome is established and evidence is complete.
+
+Before escalating, investigate repository history, inspect artifacts, run the narrowest tests, attempt safe GitHub-native recovery, and use a bounded reversible experiment when practical.
 
 ## Branch synchronization
 
@@ -172,7 +227,7 @@ Before creating an ordinary branch:
 1. compare `main` and `develop`;
 2. when `main` contains commits missing from `develop`, create or continue a PR with head `main`, base `develop`, and title `Sync: <concise reason>`;
 3. require green route-policy and repository CI;
-4. merge the synchronization PR only when it contains no unreviewed conflict resolution or extra changes;
+4. merge the synchronization PR when no genuine exception remains;
 5. verify `main` is an ancestor of `develop` and `develop` CI is green;
 6. branch from the resulting `develop` head.
 
@@ -182,8 +237,8 @@ When `develop` advances while a feature branch is active:
 
 - refresh only when required to resolve conflict, consume a dependency, or validate integration;
 - use normal commits or merge commits;
-- resolve non-consequential conflicts autonomously;
-- request a decision only when the conflict represents an unresolved product or architecture choice;
+- resolve objectively determined reversible conflicts autonomously;
+- escalate only when the conflict exposes a genuine exception;
 - never force-push a shared branch.
 
 ## Failure ownership
@@ -195,10 +250,10 @@ When `develop` advances while a feature branch is active:
 | Feature branch conflict with newer `develop` | Original feature branch after reconciling `develop` |
 | Failure first appearing after merge to `develop` | New focused integration-fix branch from `develop` |
 | Development delivery artifact failure caused by code | Integration-fix branch from `develop` |
-| Synchronization route or conflict failure | Focused P0/P1 issue; do not hide edits inside the `Sync:` PR |
+| Synchronization route or conflict failure | Focused P0/P1 issue when normal resolution is insufficient |
 | Transient GitHub Actions or connector failure | Retry and document; do not change code without evidence |
 | Production defect | Hotfix branch from `main`, then `Sync:` reconciliation to `develop` |
-| Credential, hosting, or external-service absence | `BLOCKED` with the exact approved provisioning action required |
+| Credential, hosting, or external-service absence | `BLOCKED` with the exact provisioning action required |
 
 ## Pull request conventions
 
@@ -210,8 +265,9 @@ When `develop` advances while a feature branch is active:
 - PR title: concise imperative description, except required `Sync:` and `Hotfix:` prefixes.
 - PR body includes `Closes #<number>` when merge should close the issue.
 - One issue per PR unless an issue explicitly defines grouped work.
-- Draft PRs are preferred until CI is green and acceptance evidence is complete.
-- Parallel implementation branches must not overlap files or behavior unless one is deliberately reconciled after the other merges.
+- Draft PRs are preferred while implementation or evidence is incomplete.
+- Parallel active implementation branches must not overlap files or behavior unless one is deliberately reconciled after the other merges.
+- A complete green PR should not remain open merely for category-based approval when no genuine exception exists.
 
 ## CI and delivery requirements
 
@@ -229,29 +285,49 @@ An artifact is evidence of a build, not proof of public deployment. Public envir
 
 `develop` must be green before accepting more ordinary feature merges or opening a promotion PR.
 
-Delivery routing is implemented by `scripts/validate-delivery-route.sh` and tested by `scripts/test-delivery-route.sh`. Changes to either are delivery-policy changes and require human review.
+Delivery routing is implemented by `scripts/validate-delivery-route.sh` and tested by `scripts/test-delivery-route.sh`. Changes to either require an explicit product-owner directive because they alter delivery policy. Once authorized, the agent may implement and integrate the stated policy change unless a new genuine exception appears.
 
 ## Review and merge policy
 
-The agent may autonomously merge into `develop` only when the PR is focused, reversible, green, and clearly inside a low-risk class authorized by `AGENTS.md`.
+The agent may autonomously merge a focused PR into `develop` when:
 
-A routine green `Sync:` PR may merge autonomously only when it contains no conflicts or changes beyond already-approved `main` history.
+- its intended outcome is established by repository steering, issue acceptance criteria, or an explicit recorded product-owner directive;
+- all required checks pass;
+- applicable generated and visual artifacts have been directly inspected;
+- limitations and risks are documented;
+- the change is sufficiently bounded for safe integration;
+- no genuine exception remains.
 
-Human review remains required for:
+This authority applies to architecture, Blender, geometry, rigging, animation, materials, generation, visual behavior, documentation, tests, CI, contracts, and maintenance. Category alone does not require a human approval stop.
 
-- changes to steering, authority, branch policy, or release behavior;
-- synchronization conflict resolution or additional edits;
-- subjective visual acceptance;
-- Blender geometry, rigging, animation, materials, or generation behavior;
-- consequential architecture or product decisions;
-- security-sensitive behavior;
-- credentials, paid infrastructure, or external commitments;
-- destructive actions, migrations, or difficult-to-reverse changes;
-- ambiguous risk.
+Subjective product acceptance occurs at a coherent milestone. The agent must distinguish objective validation from human acceptance, but it may integrate completed work into `develop` before the milestone checkpoint.
 
-Every `develop -> main` promotion requires human approval. No PR is autonomously merged into `main`.
+A routine green `Sync:` PR may merge autonomously when no genuine exception remains.
 
-When a PR mixes low-risk and review-required work, the entire PR requires human review. Prefer splitting it.
+Human approval remains required before:
+
+- every `develop -> main` promotion;
+- public production deployment requiring approval;
+- credentials, secrets, spending, paid infrastructure, legal or external commitments;
+- destructive, migration, history-rewriting, or difficult-to-reverse operations not already authorized;
+- security-sensitive behavior with unresolved material risk;
+- consequential product or architecture decisions not resolved by repository steering, issue criteria, prior recorded direction, or a safe reversible experiment;
+- repository operating-authority changes without an explicit product-owner directive.
+
+No PR is autonomously merged into `main`.
+
+## Milestone notification
+
+Notify the product owner when a coherent goal or milestone is complete and human feedback would materially guide the project. Include:
+
+- the user-visible outcome achieved;
+- the exact build, branch, commit, workflow run, and artifact to test;
+- focused testing instructions;
+- objective validation and artifact-inspection evidence;
+- known limitations, subjective questions, and material risks;
+- the requested decision: accept, refine the goal, or define the next goal.
+
+Do not send routine notifications for unchanged review state, queued CI, task starts, ordinary merges, or issue transitions.
 
 ## Backlog and runtime feedback
 
