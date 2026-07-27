@@ -9,7 +9,8 @@
     "test:model-runner": "tsx src/model-runner.test.ts",
     "test:rig-runner": "tsx src/rig-runner.test.ts",
     "test:animation-runner": "tsx src/animation-runner.test.ts",
-    "test:final-artifact": "tsx --test src/final-artifact.test.ts"
+    "test:final-artifact": "tsx --test src/final-artifact.test.ts",
+    "test:pipeline-runner": "tsx src/pipeline-runner.test.ts"
   },
   "dependencies": {
     "cors": "^2.8.5",

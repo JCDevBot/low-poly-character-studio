@@ -7,6 +7,7 @@ import { runHumanoidModelStage } from './model-runner.js'
 import { runHumanoidRigStage } from './rig-runner.js'
 import { readAnimationMetadata, runHumanoidAnimationStage } from './animation-runner.js'
 import { finalizeHumanoidGlb, readFinalArtifact, readFinalValidation } from './final-artifact.js'
+import { runCompleteHumanoidPipeline } from './pipeline-runner.js'
 
 const app = express()
 app.use(cors())
@@ -69,6 +70,24 @@ app.get('/jobs/:id/animations', async (req, res) => {
     const metadata = await readAnimationMetadata({ jobId: req.params.id, jobs, buildWorkspace })
     res.json({ ok: true, metadata, clips: metadata.clips })
   } catch (error) { sendError(res, error, 404) }
+})
+
+app.post('/jobs/:id/run', async (req, res) => {
+  try {
+    const job = await runCompleteHumanoidPipeline({
+      jobId: req.params.id,
+      jobs,
+      runModel: jobId => runHumanoidModelStage({ jobId, jobs, buildWorkspace, projectRoot }),
+      runRig: jobId => runHumanoidRigStage({ jobId, jobs, buildWorkspace, projectRoot }),
+      runAnimation: jobId => runHumanoidAnimationStage({ jobId, jobs, buildWorkspace, projectRoot }),
+      finalize: jobId => finalizeHumanoidGlb({ jobId, jobs, buildWorkspace })
+    })
+    const [metadata, validation] = await Promise.all([
+      readFinalArtifact({ jobId: job.id, jobs, buildWorkspace }),
+      readFinalValidation({ jobId: job.id, jobs, buildWorkspace })
+    ])
+    res.json({ ok: true, job, metadata, validation })
+  } catch (error) { sendError(res, error, 422) }
 })
 
 app.post('/jobs/:id/stages/model/run', async (req, res) => {
