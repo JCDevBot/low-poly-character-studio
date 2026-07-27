@@ -2,9 +2,9 @@ import React, { useEffect, useState } from 'react'
 import { modelTypeRegistry } from '../../../packages/model-types/src/registry'
 import type { ModelTypeManifest } from '../../../packages/model-types/src/types'
 import { App } from './App'
-import { FinalBuildWorkflow } from './FinalBuildWorkflow'
 import { ModelTypeCatalog } from './ModelTypeCatalog'
 import { ReferenceWorkspace } from './ReferenceWorkspace'
+import { VerticalSliceBuildWorkflow } from './VerticalSliceBuildWorkflow'
 import { VerticalSliceReadinessPanel } from './VerticalSliceReadiness'
 import './responsive-studio.css'
 import './responsive-studio-mobile.css'
@@ -37,7 +37,7 @@ function StudioShell() {
         <span className="studioModelIdentity"><strong>{selected.name}</strong><small>{selected.id}</small></span>
         <div className="studioGlobalActions">
           {buildReady ? (
-            <FinalBuildWorkflow modelTypeId={selected.id} />
+            <VerticalSliceBuildWorkflow modelTypeId={selected.id} />
           ) : (
             <button type="button" className="finalWorkflowLauncher" disabled title="Add and analyze a front reference, then confirm the model type">
               Validated GLB · setup required
