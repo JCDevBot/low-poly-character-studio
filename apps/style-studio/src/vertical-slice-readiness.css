@@ -1,0 +1,64 @@
+.verticalSliceReadiness {
+  border-bottom: 1px solid #2d3343;
+  background: #151925;
+  padding: 0.75rem 1rem;
+  display: grid;
+  gap: 0.65rem;
+}
+
+.verticalSliceReadinessHeading,
+.verticalSliceReadinessBody,
+.verticalSliceReadinessSteps,
+.verticalSliceAnalysisGrid {
+  display: flex;
+  gap: 0.75rem;
+  align-items: center;
+}
+
+.verticalSliceReadinessHeading { justify-content: space-between; }
+.verticalSliceReadinessHeading div { display: grid; gap: 0.15rem; }
+.verticalSliceReadinessHeading small { color: #9aa4ba; }
+.verticalSliceReadinessHeading > span {
+  border: 1px solid #70584a;
+  border-radius: 999px;
+  padding: 0.25rem 0.55rem;
+  color: #e7c8a8;
+  white-space: nowrap;
+}
+.verticalSliceReadinessHeading > span[data-ready="true"] { border-color: #397a5c; color: #8fdfb7; }
+
+.verticalSliceReadinessSteps { list-style: none; margin: 0; padding: 0; flex-wrap: wrap; }
+.verticalSliceReadinessSteps li {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  color: #aeb6c8;
+}
+.verticalSliceReadinessSteps strong {
+  display: grid;
+  place-items: center;
+  width: 1.45rem;
+  height: 1.45rem;
+  border-radius: 50%;
+  border: 1px solid #4b5366;
+}
+.verticalSliceReadinessSteps li[data-complete="true"] { color: #8fdfb7; }
+.verticalSliceReadinessSteps li[data-complete="true"] strong { border-color: #397a5c; background: #1e4937; }
+
+.verticalSliceReadinessBody { align-items: flex-start; justify-content: space-between; }
+.verticalSliceReadinessBody > div:first-child { min-width: 0; }
+.verticalSliceReadinessBody p { margin: 0.2rem 0; }
+.verticalSliceConfirmation { min-width: min(22rem, 40vw); display: grid; gap: 0.35rem; }
+.verticalSliceConfirmation ul { margin: 0; padding-left: 1.1rem; color: #d5b38f; }
+.verticalSliceWarning { color: #e3b879; }
+.verticalSliceAnalysisGrid { align-items: stretch; flex-wrap: wrap; margin-top: 0.5rem; }
+.verticalSliceAnalysisGrid div { border: 1px solid #30384a; border-radius: 0.35rem; padding: 0.4rem 0.55rem; }
+.verticalSliceAnalysisGrid dt { color: #9aa4ba; font-size: 0.75rem; }
+.verticalSliceAnalysisGrid dd { margin: 0.15rem 0 0; }
+
+@media (max-width: 760px) {
+  .verticalSliceReadiness { padding: 0.65rem 0.75rem; }
+  .verticalSliceReadinessBody { display: grid; }
+  .verticalSliceConfirmation { min-width: 0; }
+  .verticalSliceReadinessHeading { align-items: flex-start; }
+}
