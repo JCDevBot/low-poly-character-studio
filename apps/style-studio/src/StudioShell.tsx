@@ -5,8 +5,10 @@ import { App } from './App'
 import { FinalBuildWorkflow } from './FinalBuildWorkflow'
 import { ModelTypeCatalog } from './ModelTypeCatalog'
 import { ReferenceWorkspace } from './ReferenceWorkspace'
+import { VerticalSliceReadinessPanel } from './VerticalSliceReadiness'
 import './responsive-studio.css'
 import './responsive-studio-mobile.css'
+import './vertical-slice-readiness.css'
 
 const MODEL_TYPE_STORAGE_KEY = 'low-poly-character-studio.model-type.v1'
 
@@ -18,11 +20,13 @@ function initialModelType(): ModelTypeManifest | null {
 
 function StudioShell() {
   const [selected, setSelected] = useState<ModelTypeManifest | null>(initialModelType)
+  const [buildReady, setBuildReady] = useState(false)
 
   useEffect(() => {
     if (!selected) return
     localStorage.setItem(MODEL_TYPE_STORAGE_KEY, selected.id)
     window.dispatchEvent(new CustomEvent('low-poly:model-type-selected', { detail: selected }))
+    setBuildReady(false)
   }, [selected])
 
   if (!selected) return <ModelTypeCatalog onSelect={setSelected} />
@@ -32,10 +36,17 @@ function StudioShell() {
       <header className="catalogReturnBar studioGlobalHeader">
         <span className="studioModelIdentity"><strong>{selected.name}</strong><small>{selected.id}</small></span>
         <div className="studioGlobalActions">
-          <FinalBuildWorkflow modelTypeId={selected.id} />
+          {buildReady ? (
+            <FinalBuildWorkflow modelTypeId={selected.id} />
+          ) : (
+            <button type="button" className="finalWorkflowLauncher" disabled title="Add and analyze a front reference, then confirm the model type">
+              Validated GLB · setup required
+            </button>
+          )}
           <button type="button" onClick={() => setSelected(null)}>Change model type</button>
         </div>
       </header>
+      <VerticalSliceReadinessPanel modelType={selected} onReadinessChange={(readiness) => setBuildReady(readiness.ready)} />
       <ReferenceWorkspace>
         <App />
       </ReferenceWorkspace>
