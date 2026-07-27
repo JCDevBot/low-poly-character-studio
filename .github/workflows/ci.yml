@@ -132,6 +132,9 @@ jobs:
       - name: Test humanoid StyleDNA contracts
         run: python3 packages/asset-compiler/blender/tests/test_style_dna.py
 
+      - name: Test manifest compiler contracts without Blender
+        run: python3 packages/asset-compiler/compiler/test_manifest_contract.py
+
       - name: Test humanoid rig contracts
         run: python3 packages/asset-compiler/blender/tests/test_rig_contract.py
 
@@ -142,13 +145,13 @@ jobs:
         run: python3 packages/asset-compiler/blender/tests/test_animation_pack.py
 
       - name: Compile Python sources
-        run: python3 -m compileall -q packages/asset-compiler/blender/generator packages/asset-compiler/blender/scripts
+        run: python3 -m compileall -q packages/asset-compiler/compiler packages/asset-compiler/blender/generator packages/asset-compiler/blender/scripts
 
   blender-rig-smoke:
     name: Blender rig and animation smoke test
     needs: branch-policy
     runs-on: ubuntu-latest
-    timeout-minutes: 30
+    timeout-minutes: 40
     steps:
       - name: Check out repository
         uses: actions/checkout@v4
@@ -182,6 +185,12 @@ jobs:
         id: blender
         run: pnpm blender:setup
 
+      - name: Compile compact and tall manifests through Blender
+        env:
+          BLENDER_COMMAND: ${{ steps.blender.outputs.executable }}
+          LIBGL_ALWAYS_SOFTWARE: '1'
+        run: xvfb-run -a -s '-screen 0 1280x1024x24' pnpm manifest-compiler:smoke
+
       - name: Generate compact and tall rig review
         env:
           BLENDER_COMMAND: ${{ steps.blender.outputs.executable }}
@@ -203,5 +212,6 @@ jobs:
             image-analysis/output/pr-21-rig-review.zip
             image-analysis/output/pr-21-rig-review-failed.zip
             image-analysis/output/animation-smoke
+            image-analysis/output/manifest-compiler-smoke
           if-no-files-found: warn
           retention-days: 7
