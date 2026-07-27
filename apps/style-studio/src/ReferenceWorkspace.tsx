@@ -70,6 +70,10 @@ function notifyWorkspaceResize() {
   requestAnimationFrame(() => window.dispatchEvent(new Event('low-poly:reference-panel-toggle')))
 }
 
+function referenceDrawerInitiallyCollapsed() {
+  return new URLSearchParams(window.location.search).get('references') !== 'open'
+}
+
 async function applyAnalysisToLandmarkEditor(analysis: HumanoidReferenceAnalysis, source: ReferenceAsset) {
   document.querySelectorAll<HTMLElement>('.imageLayer [data-landmark]').forEach((marker) => {
     marker.dispatchEvent(new MouseEvent('dblclick', { bubbles: true }))
@@ -98,7 +102,7 @@ function ReferenceWorkspace({ children }: { children: React.ReactNode }) {
   const [analysis, setAnalysis] = useState<HumanoidReferenceAnalysis | null>(null)
   const [analysisStatus, setAnalysisStatus] = useState<'idle' | 'running' | 'complete' | 'error'>('idle')
   const [analysisError, setAnalysisError] = useState<string | null>(null)
-  const [collapsed, setCollapsed] = useState(false)
+  const [collapsed, setCollapsed] = useState(referenceDrawerInitiallyCollapsed)
   const inputRefs = useRef<Partial<Record<ReferenceSlotId, HTMLInputElement | null>>>({})
   const referenceInput = useMemo(() => toInput(references), [references])
   const referenceCount = Object.keys(references).length

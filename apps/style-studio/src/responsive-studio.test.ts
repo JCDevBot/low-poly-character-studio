@@ -1,0 +1,43 @@
+import assert from 'node:assert/strict'
+import { readFile } from 'node:fs/promises'
+import test from 'node:test'
+
+const cssUrl = new URL('./responsive-studio.css', import.meta.url)
+const shellUrl = new URL('./StudioShell.tsx', import.meta.url)
+const referenceWorkspaceUrl = new URL('./ReferenceWorkspace.tsx', import.meta.url)
+
+test('Studio shell keeps build actions in the stable header', async () => {
+  const source = await readFile(shellUrl, 'utf8')
+  assert.match(source, /studioGlobalHeader/)
+  assert.match(source, /studioGlobalActions[\s\S]*FinalBuildWorkflow/)
+  assert.match(source, /ReferenceWorkspace>[\s\S]*<App \/>/)
+})
+
+test('Studio shell restores a registered model type from URL or local storage', async () => {
+  const source = await readFile(shellUrl, 'utf8')
+  assert.match(source, /new URLSearchParams\(window\.location\.search\)\.get\('modelType'\)/)
+  assert.match(source, /modelTypeRegistry\.get\(requestedId\)/)
+  assert.match(source, /localStorage\.getItem\(MODEL_TYPE_STORAGE_KEY\)/)
+})
+
+test('responsive contract makes the viewport first at desktop, tablet, and mobile widths', async () => {
+  const css = await readFile(cssUrl, 'utf8')
+  assert.match(css, /grid-template-columns: minmax\(210px, 250px\) minmax\(0, 1fr\) minmax\(280px, 340px\)/)
+  assert.match(css, /@media \(max-width: 1180px\)[\s\S]*\.workspace[\s\S]*grid-row: 1/)
+  assert.match(css, /@media \(max-width: 760px\)[\s\S]*grid-template-rows: minmax\(62dvh, 1fr\) auto auto/)
+})
+
+test('reference and final-build surfaces do not consume permanent viewport layout space', async () => {
+  const css = await readFile(cssUrl, 'utf8')
+  assert.match(css, /\.referenceManager \{[\s\S]*position: absolute/)
+  assert.match(css, /\.finalWorkflowLauncher \{[\s\S]*position: static/)
+  assert.match(css, /overflow: auto/)
+  assert.match(css, /overscroll-behavior: contain/)
+})
+
+test('reference drawer starts collapsed and supports a reproducible expanded review URL', async () => {
+  const source = await readFile(referenceWorkspaceUrl, 'utf8')
+  assert.match(source, /get\('references'\) !== 'open'/)
+  assert.match(source, /useState\(referenceDrawerInitiallyCollapsed\)/)
+  assert.match(source, /collapsed \? 'referenceManager collapsed' : 'referenceManager'/)
+})

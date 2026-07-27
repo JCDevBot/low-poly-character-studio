@@ -1,0 +1,370 @@
+/* Viewport-first application shell. Product surfaces own their scrolling; the page never does. */
+.studioApplicationShell {
+  width: 100%;
+  height: 100dvh;
+  min-width: 0;
+  min-height: 0;
+  overflow: hidden;
+}
+
+.studioApplicationShell,
+.studioApplicationShell * {
+  box-sizing: border-box;
+}
+
+.studioGlobalHeader {
+  min-height: 48px;
+  min-width: 0;
+  padding: 6px 12px;
+  gap: 10px;
+}
+
+.studioModelIdentity {
+  min-width: 0;
+  display: flex;
+  align-items: baseline;
+  gap: 10px;
+  overflow: hidden;
+}
+
+.studioModelIdentity strong,
+.studioModelIdentity small {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.studioModelIdentity small { color: #98a4c6; }
+.studioGlobalActions {
+  min-width: 0;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+/* The accepted final-build action is part of the stable header, never a floating viewport obstruction. */
+.studioGlobalActions .finalWorkflowLauncher {
+  position: static;
+  padding: 7px 11px;
+  border-radius: 8px;
+  box-shadow: none;
+}
+
+.studioApplicationShell .finalWorkflowDrawer {
+  top: 58px;
+  right: 10px;
+  bottom: 10px;
+  width: min(520px, calc(100vw - 20px));
+  max-width: 100%;
+}
+
+/* Reference management is an overlay drawer. Expanding it no longer consumes viewport height. */
+.studioApplicationShell .referenceWorkspace {
+  position: relative;
+  width: 100%;
+  height: auto;
+  min-width: 0;
+  min-height: 0;
+  flex: 1 1 auto;
+  overflow: hidden;
+}
+
+.studioApplicationShell .referenceManager {
+  position: absolute;
+  z-index: 30;
+  inset: 10px auto 10px 10px;
+  width: min(390px, calc(100% - 20px));
+  max-height: none;
+  border: 1px solid #30374d;
+  border-radius: 12px;
+  box-shadow: 0 18px 60px rgba(0, 0, 0, 0.58);
+}
+
+.studioApplicationShell .referenceManager.collapsed {
+  inset: 10px auto auto 10px;
+  width: min(390px, calc(100% - 20px));
+  padding: 7px 10px;
+  border-radius: 10px;
+}
+
+.studioApplicationShell .referenceManager.collapsed .referenceManagerHeading > div:first-child p {
+  display: none;
+}
+
+.studioApplicationShell .referenceManager.collapsed .referenceManagerHeading h2 {
+  margin: 0;
+}
+
+.studioApplicationShell .referenceWorkspace > .app {
+  width: 100%;
+  height: 100%;
+  min-width: 0;
+  min-height: 0;
+  overflow: hidden;
+}
+
+/* Desktop: center viewport receives all remaining width and height. */
+.studioApplicationShell .topbar {
+  flex-basis: 54px;
+  height: 54px;
+  min-height: 54px;
+  min-width: 0;
+  padding: 0 12px 0 420px;
+  overflow: hidden;
+}
+
+.studioApplicationShell .topbar > div:first-child,
+.studioApplicationShell .topbar .actions {
+  min-width: 0;
+}
+
+.studioApplicationShell .topbar h1 { font-size: 17px; }
+.studioApplicationShell .topbar p { font-size: 12px; }
+.studioApplicationShell .topbar .actions { flex-wrap: wrap; justify-content: flex-end; }
+
+.studioApplicationShell .layout {
+  position: relative;
+  grid-template-columns: minmax(210px, 250px) minmax(0, 1fr) minmax(280px, 340px);
+  width: 100%;
+  min-width: 0;
+  min-height: 0;
+  overflow-x: hidden;
+}
+
+.studioApplicationShell .workspace {
+  width: 100%;
+  min-width: 0;
+  min-height: 0;
+  padding: 8px;
+  overflow: hidden;
+}
+
+.studioApplicationShell .canvasHeader {
+  min-width: 0;
+  margin-bottom: 8px;
+}
+
+.studioApplicationShell .canvasViewport,
+.studioApplicationShell .canvas {
+  width: 100%;
+  min-width: 0;
+  min-height: 280px;
+}
+
+.studioApplicationShell .sidebar,
+.studioApplicationShell .dnaPanel {
+  min-width: 0;
+  min-height: 0;
+  overflow: auto;
+  overscroll-behavior: contain;
+  scrollbar-gutter: stable;
+}
+
+.studioApplicationShell .tabs {
+  max-width: 100%;
+  overflow-x: auto;
+  scrollbar-width: thin;
+}
+
+.studioApplicationShell .tab {
+  min-width: max-content;
+}
+
+/* Small desktop and tablet: viewport first, tools below in independent panels. */
+@media (max-width: 1180px) {
+  .studioApplicationShell .topbar {
+    padding-left: 12px;
+  }
+
+  .studioApplicationShell .referenceManager.collapsed {
+    top: 62px;
+  }
+
+  .studioApplicationShell .layout {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) minmax(260px, 34vw);
+    grid-template-rows: minmax(56dvh, 1fr) minmax(220px, auto);
+    overflow-y: auto;
+    overflow-x: hidden;
+    overscroll-behavior: contain;
+  }
+
+  .studioApplicationShell .workspace {
+    grid-column: 1 / -1;
+    grid-row: 1;
+    min-height: 56dvh;
+  }
+
+  .studioApplicationShell .sidebar {
+    grid-column: 1;
+    grid-row: 2;
+    max-height: 42dvh;
+    border-top: 1px solid #2b3143;
+  }
+
+  .studioApplicationShell .dnaPanel {
+    grid-column: 2;
+    grid-row: 2;
+    max-height: 42dvh;
+    border-top: 1px solid #2b3143;
+  }
+
+  .studioApplicationShell .canvasHeader {
+    grid-template-columns: minmax(0, 1fr) auto;
+  }
+}
+
+/* Narrow windows and phones: one full-width flow, viewport remains first and usable. */
+@media (max-width: 760px) {
+  html,
+  body,
+  #root {
+    width: 100%;
+    max-width: 100%;
+    overflow: hidden;
+  }
+
+  .studioGlobalHeader {
+    min-height: 50px;
+    min-width: 0;
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto;
+    align-items: center;
+  }
+
+  .studioModelIdentity small { display: none; }
+  .studioGlobalActions { gap: 5px; }
+  .studioGlobalActions button,
+  .studioGlobalActions .finalWorkflowLauncher {
+    min-width: 0;
+    padding: 7px 8px;
+    font-size: 12px;
+    white-space: normal;
+  }
+
+  .studioApplicationShell .referenceManager,
+  .studioApplicationShell .referenceManager.collapsed {
+    inset: 8px;
+    width: auto;
+    max-width: calc(100% - 16px);
+  }
+
+  .studioApplicationShell .referenceManager.collapsed {
+    right: auto;
+    bottom: auto;
+  }
+
+  .studioApplicationShell .topbar {
+    min-height: 50px;
+    height: auto;
+    flex-basis: auto;
+    display: grid;
+    grid-template-columns: minmax(0, 1fr);
+    align-items: start;
+    gap: 8px;
+    padding: 8px;
+    overflow: visible;
+  }
+
+  .studioApplicationShell .topbar > div:first-child p { display: none; }
+  .studioApplicationShell .topbar .actions {
+    width: 100%;
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 6px;
+  }
+  .studioApplicationShell .topbar .actions button {
+    width: 100%;
+    min-width: 0;
+    padding: 7px 8px;
+    font-size: 11px;
+    white-space: normal;
+  }
+
+  .studioApplicationShell .layout {
+    width: 100%;
+    grid-template-columns: minmax(0, 1fr);
+    grid-template-rows: minmax(62dvh, 1fr) auto auto;
+  }
+
+  .studioApplicationShell .workspace {
+    grid-column: 1;
+    grid-row: 1;
+    min-height: 62dvh;
+    padding: 6px;
+  }
+
+  .studioApplicationShell .sidebar,
+  .studioApplicationShell .dnaPanel {
+    width: 100%;
+    grid-column: 1;
+    max-height: none;
+    border-left: 0;
+    border-right: 0;
+  }
+
+  .studioApplicationShell .sidebar { grid-row: 2; }
+  .studioApplicationShell .dnaPanel { grid-row: 3; }
+
+  .studioApplicationShell .canvasHeader {
+    width: 100%;
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .studioApplicationShell .current {
+    min-width: 0;
+    font-size: 12px;
+    padding: 8px 10px;
+    overflow-wrap: anywhere;
+  }
+
+  .studioApplicationShell .canvasToolbar {
+    width: 100%;
+    max-width: 100%;
+    justify-content: flex-start;
+    overflow-x: auto;
+    overscroll-behavior-x: contain;
+  }
+
+  .studioApplicationShell .canvasToolbar button {
+    flex: 0 0 auto;
+  }
+
+  .studioApplicationShell .finalWorkflowDrawer {
+    inset: 6px;
+    width: auto;
+    border-radius: 10px;
+  }
+
+  .studioApplicationShell .finalGlbPreview,
+  .studioApplicationShell .preview3d {
+    height: min(48dvh, 330px);
+  }
+}
+
+@media (max-width: 430px) {
+  .studioGlobalHeader {
+    min-height: auto;
+    grid-template-columns: minmax(0, 1fr);
+    gap: 6px;
+    padding: 6px 8px;
+  }
+
+  .studioGlobalActions {
+    width: 100%;
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .studioGlobalActions button,
+  .studioGlobalActions .finalWorkflowLauncher {
+    width: 100%;
+  }
+
+  .studioApplicationShell .topbar h1 { font-size: 14px; }
+  .studioApplicationShell .topbar .actions { gap: 4px; }
+  .studioApplicationShell .topbar .actions button { font-size: 10px; }
+  .studioApplicationShell .current { line-height: 1.3; }
+  .studioApplicationShell .referenceManagerHeading { gap: 8px; }
+  .studioApplicationShell .referenceManagerHeadingActions button { width: 100%; }
+}

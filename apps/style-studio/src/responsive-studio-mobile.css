@@ -1,0 +1,35 @@
+/* Narrow-screen corrections layered after the shared responsive shell. */
+@media (max-width: 760px) {
+  .studioApplicationShell .referenceWorkspace {
+    display: flex;
+    flex-direction: column;
+  }
+
+  .studioApplicationShell .referenceManager.collapsed {
+    position: relative;
+    z-index: 1;
+    inset: auto;
+    flex: 0 0 auto;
+    width: calc(100% - 16px);
+    max-width: none;
+    margin: 6px 8px 0;
+    box-shadow: none;
+  }
+
+  .studioApplicationShell .referenceWorkspace > .app {
+    flex: 1 1 auto;
+    height: auto;
+    min-height: 0;
+  }
+}
+
+@media (max-width: 430px) {
+  .studioApplicationShell .topbar > div:first-child {
+    display: none;
+  }
+
+  .studioApplicationShell .topbar {
+    min-height: auto;
+    padding-block: 6px;
+  }
+}
