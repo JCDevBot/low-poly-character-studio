@@ -9,7 +9,7 @@ const referenceWorkspaceUrl = new URL('./ReferenceWorkspace.tsx', import.meta.ur
 test('Studio shell keeps build actions in the stable header', async () => {
   const source = await readFile(shellUrl, 'utf8')
   assert.match(source, /studioGlobalHeader/)
-  assert.match(source, /studioGlobalActions[\s\S]*FinalBuildWorkflow/)
+  assert.match(source, /studioGlobalActions[\s\S]*VerticalSliceBuildWorkflow/)
   assert.match(source, /ReferenceWorkspace>[\s\S]*<App \/>/)
 })
 
