@@ -77,50 +77,47 @@ function VerticalSliceReadinessPanel({ modelType, onReadinessChange }: Props) {
         <span data-ready={readiness.ready}>{readiness.ready ? 'Ready to build' : 'Setup required'}</span>
       </div>
 
-      <ol className="verticalSliceReadinessSteps">
-        <li data-complete={readiness.hasFrontReference}><strong>1</strong><span>Front reference</span></li>
-        <li data-complete={readiness.hasAnalysis}><strong>2</strong><span>Analysis</span></li>
-        <li data-complete={readiness.modelTypeConfirmed}><strong>3</strong><span>Confirm model type</span></li>
-      </ol>
+      <div className="verticalSliceReadinessRow">
+        <ol className="verticalSliceReadinessSteps">
+          <li data-complete={readiness.hasFrontReference}><strong>1</strong><span>Front reference</span></li>
+          <li data-complete={readiness.hasAnalysis}><strong>2</strong><span>Analysis</span></li>
+          <li data-complete={readiness.modelTypeConfirmed}><strong>3</strong><span>Confirm model type</span></li>
+        </ol>
+        <button
+          type="button"
+          className="primary"
+          onClick={confirmModelType}
+          disabled={!readiness.hasFrontReference || !readiness.hasAnalysis || readiness.modelTypeConfirmed}
+        >
+          {readiness.modelTypeConfirmed ? `${modelType.name} confirmed` : `Confirm ${modelType.name}`}
+        </button>
+      </div>
 
-      <div className="verticalSliceReadinessBody">
-        <div>
+      {!readiness.ready ? (
+        <p className="verticalSliceNextStep" role="status">Next: {readiness.reasons[0]}</p>
+      ) : (
+        <p className="verticalSliceNextStep ready" role="status">Validated build enabled. Editable landmarks are the StyleDNA source.</p>
+      )}
+
+      <details className="verticalSliceEvidence">
+        <summary>Review recommendation and analysis evidence</summary>
+        <div className="verticalSliceEvidenceBody">
           <p><strong>Recommended:</strong> {modelType.name} <code>{modelType.id}</code></p>
           <p>{modelType.description}</p>
           <p><strong>Required parts:</strong> {expectedParts.map((part) => part.label).join(', ')}</p>
-          {typeof confidence === 'number' ? (
-            <p><strong>Analysis confidence:</strong> {Math.round(confidence * 100)}% {state.analysis?.confidence?.level ?? ''}</p>
-          ) : null}
+          {typeof confidence === 'number' ? <p><strong>Analysis confidence:</strong> {Math.round(confidence * 100)}% {state.analysis?.confidence?.level ?? ''}</p> : null}
           {state.analysis?.warnings?.map((warning) => <p className="verticalSliceWarning" key={warning.code}>{warning.message}</p>)}
+          {state.analysis?.colorRegions?.length ? (
+            <dl className="verticalSliceAnalysisGrid">
+              <div><dt>Adapter</dt><dd>{state.analysis.adapterId ?? 'unknown'}</dd></div>
+              <div><dt>Schema</dt><dd>{state.analysis.schemaVersion ?? 'unknown'}</dd></div>
+              {state.analysis.colorRegions.map((region) => (
+                <div key={region.name}><dt>{region.name}</dt><dd>rgb({region.rgb.join(', ')}) · {region.sampleCount} samples</dd></div>
+              ))}
+            </dl>
+          ) : null}
         </div>
-
-        <div className="verticalSliceConfirmation">
-          <button
-            type="button"
-            className="primary"
-            onClick={confirmModelType}
-            disabled={!readiness.hasFrontReference || !readiness.hasAnalysis || readiness.modelTypeConfirmed}
-          >
-            {readiness.modelTypeConfirmed ? `${modelType.name} confirmed` : `Confirm ${modelType.name}`}
-          </button>
-          {!readiness.ready ? <ul>{readiness.reasons.map((reason) => <li key={reason}>{reason}</li>)}</ul> : (
-            <p role="status">The validated build action is enabled. Editable landmarks become the StyleDNA source.</p>
-          )}
-        </div>
-      </div>
-
-      {state.analysis?.colorRegions?.length ? (
-        <details>
-          <summary>Analysis artifacts</summary>
-          <dl className="verticalSliceAnalysisGrid">
-            <div><dt>Adapter</dt><dd>{state.analysis.adapterId ?? 'unknown'}</dd></div>
-            <div><dt>Schema</dt><dd>{state.analysis.schemaVersion ?? 'unknown'}</dd></div>
-            {state.analysis.colorRegions.map((region) => (
-              <div key={region.name}><dt>{region.name}</dt><dd>rgb({region.rgb.join(', ')}) · {region.sampleCount} samples</dd></div>
-            ))}
-          </dl>
-        </details>
-      ) : null}
+      </details>
     </section>
   )
 }
