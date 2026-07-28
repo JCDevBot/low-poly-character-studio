@@ -1,0 +1,19 @@
+/* Keep every part of a zoomed reference reachable with ordinary wheel,
+   trackpad, keyboard, and visible native scrollbars. */
+.canvas {
+  overflow: auto;
+  scrollbar-gutter: stable;
+  scrollbar-width: thin;
+}
+
+/* A positioned in-flow layer contributes its transformed bounds to the
+   canvas scroll area while preserving the existing pan transform. */
+.canvas .imageLayer {
+  position: relative;
+  flex: 0 0 auto;
+}
+
+.canvas:focus-visible {
+  outline: 2px solid #ffd66b;
+  outline-offset: -3px;
+}
