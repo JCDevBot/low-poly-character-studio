@@ -27,6 +27,7 @@ See:
 - [`docs/product-vision.md`](docs/product-vision.md)
 - [`docs/architecture.md`](docs/architecture.md)
 - [`docs/gold-standard-humanoid-chibi.md`](docs/gold-standard-humanoid-chibi.md)
+- [`docs/local-vertical-slice.md`](docs/local-vertical-slice.md)
 - [`docs/task-management.md`](docs/task-management.md)
 - [`AGENTS.md`](AGENTS.md)
 
@@ -34,13 +35,14 @@ See:
 
 The repository currently contains:
 
-- a React, Vite, and Three.js Style Studio
-- landmark editing and StyleDNA generation
-- Blender scripts for procedural humanoid parts and a base human
-- a local Express API that launches selected Blender builds
-- GLB preview support
+- a React, Vite, and Three.js Studio driven by the model-type registry
+- front-reference upload, analysis, explicit model-type confirmation, landmark editing, and editable StyleDNA
+- persisted, resumable build jobs exposed through the local API
+- a manifest-driven Blender compiler for modeling, rigging, animation, review output, validation, and export
+- a viewport-first responsive workspace with persisted stage status
+- animated GLB preview, clip selection, structural validation, and validation-gated download
 
-The current implementation is an early foundation. It does not yet provide the complete upload-to-rigged-model workflow.
+The current `humanoid/chibi-v1` milestone can be exercised locally from the approved reference through one validated animated GLB. Follow [`docs/local-vertical-slice.md`](docs/local-vertical-slice.md) for exact reproduction and human milestone checks.
 
 ## Local development
 
@@ -48,13 +50,13 @@ Requirements:
 
 - Node.js 22
 - pnpm 9
-- Blender available as `blender` for generation
+- Blender available as `blender` for generation, or the repository-pinned Blender toolchain
 
 Install dependencies and start the API and Studio:
 
 ```bash
 pnpm install
-./scripts/build.sh -dev
+pnpm studio
 ```
 
 Open:
@@ -66,18 +68,25 @@ http://localhost:5173/
 To run only the Studio:
 
 ```bash
-./scripts/build.sh -studio
+pnpm studio:ui
 ```
 
-To run a current Blender build target:
+To install the pinned Blender toolchain and exercise the complete manifest compiler:
 
 ```bash
-./scripts/build.sh -human
-./scripts/build.sh -head
+pnpm blender:setup
+pnpm manifest-compiler:smoke
+```
+
+Focused vertical-slice checks:
+
+```bash
+pnpm vertical-slice:test
+pnpm pipeline-runner:test
+pnpm studio-responsive:test
+pnpm studio:build
 ```
 
 ## Delivery
 
-Pull requests and pushes to `main` run continuous integration. Version tags matching `v*` package the built Style Studio as a GitHub Release artifact.
-
-Blender-capable end-to-end CI and production hosting are separate roadmap items.
+Pull requests and pushes to `develop` or `main` run continuous integration. Green pushes produce traceable Studio build artifacts. Production promotion is a reviewed pull request from `develop` to `main`; a build artifact is delivery evidence, not proof of public deployment.
