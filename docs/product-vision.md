@@ -8,6 +8,18 @@ A user supplies one or more reference images, chooses a supported model type, re
 
 The first supported model type is a stylized humanoid. The system must be designed so additional model types, such as animals, vehicles, props, buildings, or foliage, can be added without rewriting the shared application.
 
+## Product experience direction
+
+The Studio should present this capability as a polished creative product rather than exposing an internal pipeline console. The approved experience has three connected surfaces:
+
+1. a landing page that proves the product with a Studio-created animated character demonstration and concise benefit tiles;
+2. a sign-in or `Continue as guest` entry, with guest mode supporting the current local workflow;
+3. a guided workspace with a permanent step navigator, dominant visual work surface, and context-sensitive inspector.
+
+Users should see plain-language steps, one primary task at a time, and progressively disclosed technical detail. Internal terms such as StyleDNA, manifests, and stage artifacts remain available for reproducibility and advanced diagnostics but do not drive the primary navigation.
+
+The canonical interaction, responsive, accessibility, completion, and migration specification is `docs/ui-product-experience.md`.
+
 ## Core user flow
 
 1. **Choose a model type**
@@ -54,7 +66,7 @@ The first complete vertical slice is:
 - Geometry: recognizable proportions and major color regions
 - Rig: standard humanoid skeleton with usable skin weights
 - Animations: A-pose, idle, walk, and wave
-- Experience: upload, process, preview, download
+- Experience: understand the product, continue as guest, follow the guided workflow, preview, and download
 - Reproducibility: the build records model type, pipeline version, StyleDNA, and generation settings
 
 ## Product principles
@@ -65,6 +77,8 @@ The first complete vertical slice is:
 - **Model-type extensibility:** Shared pipeline stages operate through model type contracts and capability declarations.
 - **Portable output:** Exported GLBs should work in common engines and viewers without repository-specific runtime code.
 - **Transparent limitations:** The application should expose confidence, assumptions, unsupported features, and validation failures.
+- **Guided rather than tool-first:** A first-time user should always understand the current step and next action without learning pipeline terminology.
+- **Visual work surface first:** References and generated characters receive the largest usable region, and every required image or model region remains reachable.
 
 ## Initial non-goals
 
@@ -74,7 +88,8 @@ The first complete vertical slice is:
 - Arbitrary production-ready topology from every possible image
 - Automatic support for every body plan before the model type contract is stable
 - Cloud-scale rendering or paid production infrastructure before the local pipeline works end to end
+- Account storage, billing, and team workspaces before the guest product flow is coherent
 
 ## Success criteria
 
-The MVP is successful when a first-time user can upload a character image and, without using Blender directly, download a recognizable low-poly humanoid GLB that loads successfully, contains a skeleton, and plays the included animation clips.
+The MVP is successful when a first-time user can understand the product from the landing experience, continue as a guest, upload a character image, complete the guided workflow without using Blender directly, and download a recognizable low-poly humanoid GLB that loads successfully, contains a skeleton, and plays the included animation clips.
