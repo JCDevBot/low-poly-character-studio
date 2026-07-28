@@ -5,6 +5,9 @@ import test from 'node:test'
 const cssUrl = new URL('./responsive-studio.css', import.meta.url)
 const shellUrl = new URL('./StudioShell.tsx', import.meta.url)
 const referenceWorkspaceUrl = new URL('./ReferenceWorkspace.tsx', import.meta.url)
+const canvasScrollCssUrl = new URL('./canvas-native-scroll.css', import.meta.url)
+const canvasScrollSourceUrl = new URL('./canvas-native-scroll.ts', import.meta.url)
+const mainUrl = new URL('./main.tsx', import.meta.url)
 
 test('Studio shell keeps build actions in the stable header', async () => {
   const source = await readFile(shellUrl, 'utf8')
@@ -40,4 +43,19 @@ test('reference drawer starts collapsed and supports a reproducible expanded rev
   assert.match(source, /get\('references'\) !== 'open'/)
   assert.match(source, /useState\(referenceDrawerInitiallyCollapsed\)/)
   assert.match(source, /collapsed \? 'referenceManager collapsed' : 'referenceManager'/)
+})
+
+test('zoomed references remain reachable through native canvas scrolling', async () => {
+  const [css, source, main] = await Promise.all([
+    readFile(canvasScrollCssUrl, 'utf8'),
+    readFile(canvasScrollSourceUrl, 'utf8'),
+    readFile(mainUrl, 'utf8'),
+  ])
+
+  assert.match(css, /\.canvas \{[\s\S]*overflow: auto/)
+  assert.match(css, /\.canvas \.imageLayer \{[\s\S]*position: relative/)
+  assert.match(source, /if \(event\.ctrlKey \|\| event\.metaKey\) return/)
+  assert.match(source, /event\.stopPropagation\(\)/)
+  assert.match(source, /capture: true/)
+  assert.match(main, /installCanvasNativeScroll\(\)/)
 })
