@@ -9,11 +9,13 @@ const canvasScrollCssUrl = new URL('./canvas-native-scroll.css', import.meta.url
 const canvasScrollSourceUrl = new URL('./canvas-native-scroll.ts', import.meta.url)
 const mainUrl = new URL('./main.tsx', import.meta.url)
 
-test('Studio shell keeps build actions in the stable guided workspace heading', async () => {
+
+test('Studio shell keeps guided build work in the dominant workspace', async () => {
   const source = await readFile(shellUrl, 'utf8')
   assert.match(source, /guidedStudioTopbar/)
-  assert.match(source, /guidedPrimaryAction[\s\S]*VerticalSliceBuildWorkflow/)
-  assert.match(source, /ReferenceWorkspace>[\s\S]*<App \/>/)
+  assert.match(source, /guidedMainWorkspace[\s\S]*VerticalSliceBuildWorkflow/)
+  assert.match(source, /isReferenceStep \? <>[\s\S]*ReferenceWorkspace/)
+  assert.doesNotMatch(source, /guidedPrimaryAction/)
 })
 
 test('Studio shell restores a registered model type from URL or local storage', async () => {
