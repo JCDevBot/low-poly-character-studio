@@ -5,6 +5,7 @@ import test from 'node:test'
 const sourceUrl = new URL('./StudioShell.tsx', import.meta.url)
 const cssUrl = new URL('./guided-studio-shell.css', import.meta.url)
 
+
 test('guided shell exposes the approved seven-step workflow and stable regions', async () => {
   const source = await readFile(sourceUrl, 'utf8')
 
@@ -31,15 +32,17 @@ test('guided shell preserves the working pipeline surfaces', async () => {
   assert.match(source, /stepState\(index, currentStepIndex\)/)
 })
 
-test('reference and analysis events advance dedicated guided steps', async () => {
+test('persisted readiness and build phase advance dedicated guided steps', async () => {
   const source = await readFile(sourceUrl, 'utf8')
 
-  assert.match(source, /currentStepIndexFor\(frontReady, analysisReady, buildReady\)/)
+  assert.match(source, /currentStepIndexFor\(frontReady, analysisReady, buildReady, buildStep\)/)
   assert.match(source, /low-poly:reference-set-change/)
   assert.match(source, /low-poly:reference-analysis-complete/)
   assert.match(source, /if \(!frontReady\) return 1/)
   assert.match(source, /if \(!analysisReady\) return 2/)
   assert.match(source, /if \(!buildReady\) return 3/)
+  assert.match(source, /guidedBuildIndex\(buildStep\)/)
+  assert.match(source, /activeStep=\{buildStep\}/)
   assert.doesNotMatch(source, /Generate character · setup required/)
 })
 
