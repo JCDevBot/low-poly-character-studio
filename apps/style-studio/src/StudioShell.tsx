@@ -14,6 +14,7 @@ import './guided-studio-shell.css'
 const MODEL_TYPE_STORAGE_KEY = 'low-poly-character-studio.model-type.v1'
 const REFERENCE_SET_STORAGE_KEY = 'low-poly-character-studio.reference-set.v1'
 const REFERENCE_ANALYSIS_STORAGE_KEY = 'low-poly-character-studio.reference-analysis.v1'
+const DIRECT_PAN_THRESHOLD = 6
 
 const WORKFLOW_STEPS = [
   'Choose character type',
@@ -32,6 +33,10 @@ type ReferenceSetSnapshot = {
   references?: {
     front?: unknown
   }
+}
+
+type DirectPanPointerEvent = PointerEvent & {
+  __lowPolyDirectPanProxy?: boolean
 }
 
 function initialModelType(): ModelTypeManifest | null {
@@ -78,7 +83,7 @@ function inspectorCopy(step: WorkflowStep) {
   if (step === 'Place markers') {
     return {
       title: 'Marker guidance',
-      body: 'Use Fit to see the complete image, drag the canvas to pan, and refine each visible marker with pointer or keyboard controls.',
+      body: 'Use Fit to see the complete image, drag anywhere outside a marker to pan, and refine markers with pointer or keyboard controls.',
     }
   }
   if (step === 'Review character shape') {
@@ -133,6 +138,76 @@ function StudioShell() {
   const currentStepIndex = currentStepIndexFor(frontReady, analysisReady, buildReady)
   const currentStep = WORKFLOW_STEPS[currentStepIndex]
   const inspector = useMemo(() => inspectorCopy(currentStep), [currentStep])
+
+  useEffect(() => {
+    if (currentStep !== 'Place markers') return
+
+    let candidate: {
+      pointerId: number
+      pointerType: string
+      startX: number
+      startY: number
+      target: HTMLElement
+    } | null = null
+    let proxyStarted = false
+
+    const onPointerDown = (event: PointerEvent) => {
+      const directPanEvent = event as DirectPanPointerEvent
+      if (directPanEvent.__lowPolyDirectPanProxy || event.button !== 0) return
+      const target = event.target as HTMLElement | null
+      const canvas = target?.closest('.guidedStudioStep--2 .referenceWorkspace .canvas') as HTMLElement | null
+      if (!canvas || target?.closest('[data-landmark]')) return
+      candidate = {
+        pointerId: event.pointerId,
+        pointerType: event.pointerType,
+        startX: event.clientX,
+        startY: event.clientY,
+        target: canvas,
+      }
+      proxyStarted = false
+    }
+
+    const onPointerMove = (event: PointerEvent) => {
+      if (!candidate || event.pointerId !== candidate.pointerId || proxyStarted) return
+      const distance = Math.hypot(event.clientX - candidate.startX, event.clientY - candidate.startY)
+      if (distance < DIRECT_PAN_THRESHOLD) return
+
+      const proxy = new PointerEvent('pointerdown', {
+        bubbles: true,
+        cancelable: true,
+        composed: true,
+        pointerId: candidate.pointerId,
+        pointerType: candidate.pointerType,
+        isPrimary: event.isPrimary,
+        clientX: candidate.startX,
+        clientY: candidate.startY,
+        button: 0,
+        buttons: 1,
+        shiftKey: true,
+      }) as DirectPanPointerEvent
+      proxy.__lowPolyDirectPanProxy = true
+      candidate.target.dispatchEvent(proxy)
+      proxyStarted = true
+    }
+
+    const clearCandidate = (event: PointerEvent) => {
+      if (candidate && event.pointerId === candidate.pointerId) {
+        candidate = null
+        proxyStarted = false
+      }
+    }
+
+    document.addEventListener('pointerdown', onPointerDown, true)
+    document.addEventListener('pointermove', onPointerMove, true)
+    document.addEventListener('pointerup', clearCandidate, true)
+    document.addEventListener('pointercancel', clearCandidate, true)
+    return () => {
+      document.removeEventListener('pointerdown', onPointerDown, true)
+      document.removeEventListener('pointermove', onPointerMove, true)
+      document.removeEventListener('pointerup', clearCandidate, true)
+      document.removeEventListener('pointercancel', clearCandidate, true)
+    }
+  }, [currentStep])
 
   if (!selected) return <ModelTypeCatalog onSelect={setSelected} />
 
