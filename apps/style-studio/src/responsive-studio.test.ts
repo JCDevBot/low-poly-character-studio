@@ -3,6 +3,7 @@ import { readFile } from 'node:fs/promises'
 import test from 'node:test'
 
 const cssUrl = new URL('./responsive-studio.css', import.meta.url)
+const breakpointCssUrl = new URL('./responsive-breakpoints.css', import.meta.url)
 const shellUrl = new URL('./StudioShell.tsx', import.meta.url)
 const referenceWorkspaceUrl = new URL('./ReferenceWorkspace.tsx', import.meta.url)
 const canvasScrollCssUrl = new URL('./canvas-native-scroll.css', import.meta.url)
@@ -30,6 +31,26 @@ test('responsive contract makes the viewport first at desktop, tablet, and mobil
   assert.match(css, /grid-template-columns: minmax\(210px, 250px\) minmax\(0, 1fr\) minmax\(280px, 340px\)/)
   assert.match(css, /@media \(max-width: 1180px\)[\s\S]*\.workspace[\s\S]*grid-row: 1/)
   assert.match(css, /@media \(max-width: 760px\)[\s\S]*grid-template-rows: minmax\(62dvh, 1fr\) auto auto/)
+})
+
+test('guided shell uses Bootstrap-style breakpoints to progressively release workspace width', async () => {
+  const css = await readFile(breakpointCssUrl, 'utf8')
+  assert.match(css, /@media \(max-width: 1399\.98px\)[\s\S]*grid-template-columns: 220px minmax\(0, 1fr\)[\s\S]*\.guidedInspector[\s\S]*position: fixed/)
+  assert.match(css, /@media \(max-width: 1199\.98px\)[\s\S]*\.guidedStudioBody[\s\S]*display: block[\s\S]*\.guidedStepRail[\s\S]*position: fixed/)
+  assert.match(css, /@media \(max-width: 767\.98px\)[\s\S]*\.guidedStudioProgress[\s\S]*display: none/)
+  assert.match(css, /@media \(max-width: 575\.98px\)[\s\S]*\.guidedStudioTopbar/)
+})
+
+test('landing experience reflows before laptop and tablet layouts become cramped', async () => {
+  const [css, main] = await Promise.all([
+    readFile(breakpointCssUrl, 'utf8'),
+    readFile(mainUrl, 'utf8'),
+  ])
+  assert.match(main, /import '\.\/responsive-breakpoints\.css'/)
+  assert.match(css, /@media \(max-width: 1399\.98px\)[\s\S]*\.landingHero[\s\S]*minmax\(380px, 1\.05fr\)/)
+  assert.match(css, /@media \(max-width: 1199\.98px\)[\s\S]*\.landingHero[\s\S]*grid-template-columns: minmax\(0, 1fr\)/)
+  assert.match(css, /@media \(max-width: 991\.98px\)[\s\S]*\.landingMenu > a/)
+  assert.match(css, /@media \(max-width: 767\.98px\)[\s\S]*\.landingTiles[\s\S]*grid-template-columns: minmax\(0, 1fr\)/)
 })
 
 test('reference and final-build surfaces do not consume permanent viewport layout space', async () => {
