@@ -1,0 +1,91 @@
+.finalWorkflowInline {
+  width: min(100%, 980px);
+  margin: 0 auto;
+  padding: clamp(18px, 3vw, 32px);
+  border: 1px solid #30374d;
+  border-radius: 16px;
+  background: #151823;
+}
+
+.finalWorkflowInline > header {
+  padding-bottom: 16px;
+  border-bottom: 1px solid #30374d;
+}
+
+.finalWorkflowInline h2,
+.finalWorkflowInline h3 {
+  margin: 0;
+}
+
+.finalWorkflowInline header p {
+  max-width: 62ch;
+  margin: 7px 0 0;
+  color: #aeb8d2;
+}
+
+.finalWorkflowInline button,
+.finalWorkflowInline .finalDownload {
+  padding: 10px 13px;
+  border: 1px solid #3a425c;
+  border-radius: 8px;
+  background: #24293a;
+  color: #fff;
+  font: inherit;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.finalWorkflowInline button:disabled {
+  cursor: progress;
+  opacity: 0.6;
+}
+
+.finalWorkflowInline button.active {
+  border-color: #f2ca4c;
+  background: #453819;
+}
+
+.finalWorkflowReview {
+  width: min(100%, 1120px);
+}
+
+.finalWorkflowReview .finalGlbPreview {
+  height: clamp(360px, 58vh, 680px);
+  margin-top: 18px;
+  overflow: hidden;
+  border: 1px solid #30374d;
+  border-radius: 12px 12px 0 0;
+}
+
+.finalWorkflowReview .finalClipControls {
+  padding: 12px;
+  border: 1px solid #30374d;
+  border-top: 0;
+  border-radius: 0 0 12px 12px;
+  background: #11131a;
+}
+
+.finalAdvancedDetails {
+  margin-top: 16px;
+  padding: 12px;
+  border: 1px solid #30374d;
+  border-radius: 10px;
+  background: #11131a;
+}
+
+.finalAdvancedDetails summary {
+  cursor: pointer;
+  font-weight: 700;
+}
+
+@media (max-width: 760px) {
+  .finalWorkflowInline {
+    padding: 16px;
+    border-radius: 12px;
+  }
+
+  .finalWorkflowReview .finalGlbPreview {
+    height: 52vh;
+    min-height: 320px;
+  }
+}
