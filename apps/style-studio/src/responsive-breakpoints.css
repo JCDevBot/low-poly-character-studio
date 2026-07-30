@@ -1,0 +1,221 @@
+/*
+ * Responsive progression follows the familiar Bootstrap breakpoint model:
+ * xxl < 1400, xl < 1200, lg < 992, md < 768, and sm < 576.
+ * The Studio remains framework-independent while reflowing at predictable widths.
+ */
+
+@media (max-width: 1399.98px) {
+  .guidedStudioBody {
+    grid-template-columns: 220px minmax(0, 1fr);
+  }
+
+  .guidedInspector {
+    position: fixed;
+    z-index: 70;
+    top: 58px;
+    right: 0;
+    bottom: 0;
+    width: min(360px, 92vw);
+    transform: translateX(100%);
+    transition: transform 0.18s ease;
+    box-shadow: -16px 0 40px rgba(0, 0, 0, 0.45);
+  }
+
+  .guidedInspector.isOpen {
+    transform: translateX(0);
+  }
+
+  .guidedMobileControl,
+  .guidedInspector .guidedDrawerClose {
+    display: inline-flex;
+  }
+
+  .landingHero {
+    grid-template-columns: minmax(0, 0.95fr) minmax(380px, 1.05fr);
+    gap: clamp(28px, 4vw, 56px);
+    padding-top: clamp(44px, 6vw, 76px);
+  }
+
+  .landingHeroCopy h1 {
+    font-size: clamp(44px, 5vw, 68px);
+  }
+
+  .landingProofStage {
+    min-height: min(50vw, 560px);
+  }
+}
+
+@media (max-width: 1199.98px) {
+  .guidedStudioBody {
+    display: block;
+  }
+
+  .guidedStepRail {
+    position: fixed;
+    z-index: 80;
+    top: 58px;
+    left: 0;
+    bottom: 0;
+    width: min(320px, 92vw);
+    transform: translateX(-100%);
+    transition: transform 0.18s ease;
+    box-shadow: 16px 0 40px rgba(0, 0, 0, 0.45);
+  }
+
+  .guidedStepRail.isOpen {
+    transform: translateX(0);
+  }
+
+  .guidedStepRail .guidedDrawerClose {
+    display: inline-flex;
+  }
+
+  .guidedMainWorkspace {
+    width: 100%;
+    height: calc(100dvh - 58px);
+  }
+
+  .guidedStudioStep--1 .referenceWorkspace .layout,
+  .guidedStudioStep--2 .referenceWorkspace .layout,
+  .guidedStudioStep--3 .referenceWorkspace .layout {
+    grid-template-columns: minmax(0, 1fr);
+    grid-template-rows: minmax(56dvh, 1fr) minmax(220px, auto);
+  }
+
+  .landingHero {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .landingHeroCopy,
+  .landingProof {
+    width: min(100%, 860px);
+    margin-inline: auto;
+  }
+
+  .landingProofStage {
+    min-height: 520px;
+  }
+}
+
+@media (max-width: 991.98px) {
+  .landingMenu > a {
+    display: none;
+  }
+
+  .landingPipeline ol {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+}
+
+@media (max-width: 767.98px) {
+  .guidedStudioTopbar {
+    grid-template-columns: minmax(0, 1fr) auto;
+    gap: 8px;
+  }
+
+  .guidedStudioProgress {
+    display: none;
+  }
+
+  .guidedStudioBrand span,
+  .guidedStudioTopbarActions > button:last-child {
+    display: none;
+  }
+
+  .guidedWorkspaceHeading {
+    align-items: flex-start;
+  }
+
+  .landingHeader {
+    align-items: flex-start;
+  }
+
+  .landingBrand {
+    max-width: 180px;
+  }
+
+  .landingMenu {
+    gap: 8px;
+  }
+
+  .landingMenu .landingTextButton {
+    display: none;
+  }
+
+  .landingPrimaryButton {
+    padding: 10px 12px;
+  }
+
+  .landingHero {
+    padding-top: 44px;
+  }
+
+  .landingHeroCopy h1 {
+    font-size: clamp(40px, 13vw, 58px);
+  }
+
+  .landingHeroActions {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+
+  .landingProofStage {
+    min-height: 420px;
+  }
+
+  .landingPipeline ol,
+  .landingTiles {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .landingNotice {
+    right: 12px;
+    bottom: 12px;
+    left: 12px;
+    flex-direction: column;
+    align-items: flex-start;
+  }
+}
+
+@media (max-width: 575.98px) {
+  .guidedStudioTopbar {
+    padding-inline: 10px;
+  }
+
+  .guidedStudioTopbarActions {
+    gap: 5px;
+  }
+
+  .guidedMobileControl {
+    padding-inline: 9px;
+  }
+
+  .guidedWorkspaceHeading {
+    padding-inline: 10px;
+  }
+
+  .landingHeader {
+    gap: 10px;
+    padding-inline: 14px;
+  }
+
+  .landingBrand {
+    max-width: 150px;
+    font-size: 14px;
+  }
+
+  .landingBrandMark {
+    flex: 0 0 auto;
+  }
+
+  .landingHero {
+    padding-inline: 14px;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .guidedStepRail,
+  .guidedInspector {
+    transition: none;
+  }
+}
