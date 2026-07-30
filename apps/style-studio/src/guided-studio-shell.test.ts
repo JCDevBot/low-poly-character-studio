@@ -53,3 +53,15 @@ test('guided shell collapses navigation and inspector without horizontal page fl
   assert.match(css, /\.guidedInspector\.isOpen/)
   assert.match(css, /overflow: hidden/)
 })
+
+test('marker step keeps the reference canvas dominant and removes premature build surfaces', async () => {
+  const css = await readFile(cssUrl, 'utf8')
+
+  assert.match(css, /guidedStudioStep--2 \.referenceWorkspace > \.app > \.topbar/)
+  assert.match(css, /guidedStudioStep--2 \.referenceWorkspace \.dnaPanel/)
+  assert.match(css, /guidedStudioStep--2 \.referenceWorkspace \.layout/)
+  assert.match(css, /grid-template-columns: minmax\(210px, 250px\) minmax\(0, 1fr\)/)
+  assert.match(css, /touch-action: none/)
+  assert.match(css, /cursor: grab/)
+  assert.match(css, /overscroll-behavior: contain/)
+})
