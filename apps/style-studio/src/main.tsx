@@ -7,6 +7,7 @@ import './styles.css'
 import './canvas-native-scroll.css'
 import './landing-experience.css'
 import './guided-generation-workflow.css'
+import './product-responsive-reflow.css'
 
 installCanvasNativeScroll()
 
