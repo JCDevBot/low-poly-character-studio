@@ -28,7 +28,19 @@ test('guided shell preserves the working pipeline surfaces', async () => {
   assert.match(source, /VerticalSliceBuildWorkflow/)
   assert.match(source, /ReferenceWorkspace/)
   assert.match(source, /<App \/>/)
-  assert.match(source, /stepState\(index, buildReady\)/)
+  assert.match(source, /stepState\(index, currentStepIndex\)/)
+})
+
+test('reference and analysis events advance dedicated guided steps', async () => {
+  const source = await readFile(sourceUrl, 'utf8')
+
+  assert.match(source, /currentStepIndexFor\(frontReady, analysisReady, buildReady\)/)
+  assert.match(source, /low-poly:reference-set-change/)
+  assert.match(source, /low-poly:reference-analysis-complete/)
+  assert.match(source, /if \(!frontReady\) return 1/)
+  assert.match(source, /if \(!analysisReady\) return 2/)
+  assert.match(source, /if \(!buildReady\) return 3/)
+  assert.doesNotMatch(source, /Generate character · setup required/)
 })
 
 test('guided shell collapses navigation and inspector without horizontal page flow', async () => {
