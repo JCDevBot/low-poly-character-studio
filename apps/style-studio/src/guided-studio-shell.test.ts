@@ -65,3 +65,15 @@ test('marker step keeps the reference canvas dominant and removes premature buil
   assert.match(css, /cursor: grab/)
   assert.match(css, /overscroll-behavior: contain/)
 })
+
+test('marker step promotes an unmodified drag into the existing pan contract', async () => {
+  const source = await readFile(sourceUrl, 'utf8')
+
+  assert.match(source, /DIRECT_PAN_THRESHOLD = 6/)
+  assert.match(source, /target\?\.closest\('\[data-landmark\]'\)/)
+  assert.match(source, /Math\.hypot\(event\.clientX - candidate\.startX, event\.clientY - candidate\.startY\)/)
+  assert.match(source, /new PointerEvent\('pointerdown'/)
+  assert.match(source, /shiftKey: true/)
+  assert.match(source, /__lowPolyDirectPanProxy/)
+  assert.match(source, /drag anywhere outside a marker to pan/)
+})
