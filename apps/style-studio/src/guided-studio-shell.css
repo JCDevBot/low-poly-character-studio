@@ -106,6 +106,42 @@
 .guidedPrimaryAction { flex: 0 0 auto; }
 .guidedMainWorkspace > .referenceWorkspace { flex: 1 1 auto; }
 
+/* Early guided steps keep the reference task dominant and hide legacy global/build surfaces. */
+.guidedStudioStep--1 .referenceWorkspace > .app > .topbar,
+.guidedStudioStep--2 .referenceWorkspace > .app > .topbar,
+.guidedStudioStep--3 .referenceWorkspace > .app > .topbar,
+.guidedStudioStep--1 .referenceWorkspace .dnaPanel,
+.guidedStudioStep--2 .referenceWorkspace .dnaPanel,
+.guidedStudioStep--3 .referenceWorkspace .dnaPanel {
+  display: none;
+}
+
+.guidedStudioStep--1 .referenceWorkspace .layout,
+.guidedStudioStep--2 .referenceWorkspace .layout,
+.guidedStudioStep--3 .referenceWorkspace .layout {
+  grid-template-columns: minmax(210px, 250px) minmax(0, 1fr);
+}
+
+.guidedStudioStep--2 .referenceWorkspace .workspace {
+  padding: 10px;
+}
+
+.guidedStudioStep--2 .referenceWorkspace .canvasViewport {
+  min-height: 0;
+  height: 100%;
+}
+
+.guidedStudioStep--2 .referenceWorkspace .canvas {
+  cursor: grab;
+  touch-action: none;
+  overscroll-behavior: contain;
+}
+
+.guidedStudioStep--2 .referenceWorkspace .canvas.panning,
+.guidedStudioStep--2 .referenceWorkspace .canvas.readyToPan {
+  cursor: grabbing;
+}
+
 .guidedInspector section,
 .guidedInspector details {
   padding: 14px 0;
@@ -131,6 +167,13 @@
   .guidedInspector.isOpen { transform: translateX(0); }
   .guidedMobileControl { display: inline-flex; }
   .guidedDrawerClose { display: inline-flex; }
+
+  .guidedStudioStep--1 .referenceWorkspace .layout,
+  .guidedStudioStep--2 .referenceWorkspace .layout,
+  .guidedStudioStep--3 .referenceWorkspace .layout {
+    grid-template-columns: minmax(0, 1fr);
+    grid-template-rows: minmax(56dvh, 1fr) minmax(220px, auto);
+  }
 }
 
 @media (max-width: 760px) {

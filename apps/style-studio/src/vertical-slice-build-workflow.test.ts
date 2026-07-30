@@ -23,7 +23,6 @@ test('completed result exposes stages, preview, clips, validation, and download'
 })
 
 test('Studio uses the vertical-slice workflow only after readiness', () => {
-  assert.match(shell, /buildReady \? \(/)
-  assert.match(shell, /<VerticalSliceBuildWorkflow modelTypeId=\{selected\.id\}/)
+  assert.match(shell, /buildReady \? <VerticalSliceBuildWorkflow modelTypeId=\{selected\.id\} \/> : null/)
   assert.doesNotMatch(shell, /<FinalBuildWorkflow/)
 })

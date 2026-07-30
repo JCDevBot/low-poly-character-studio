@@ -12,6 +12,9 @@ import './vertical-slice-readiness.css'
 import './guided-studio-shell.css'
 
 const MODEL_TYPE_STORAGE_KEY = 'low-poly-character-studio.model-type.v1'
+const REFERENCE_SET_STORAGE_KEY = 'low-poly-character-studio.reference-set.v1'
+const REFERENCE_ANALYSIS_STORAGE_KEY = 'low-poly-character-studio.reference-analysis.v1'
+const DIRECT_PAN_THRESHOLD = 6
 
 const WORKFLOW_STEPS = [
   'Choose character type',
@@ -26,33 +29,70 @@ const WORKFLOW_STEPS = [
 type WorkflowStep = typeof WORKFLOW_STEPS[number]
 type StepState = 'completed' | 'current' | 'available' | 'warning' | 'future'
 
+type ReferenceSetSnapshot = {
+  references?: {
+    front?: unknown
+  }
+}
+
+type DirectPanPointerEvent = PointerEvent & {
+  __lowPolyDirectPanProxy?: boolean
+}
+
 function initialModelType(): ModelTypeManifest | null {
   const requestedId = new URLSearchParams(window.location.search).get('modelType')
     ?? localStorage.getItem(MODEL_TYPE_STORAGE_KEY)
   return requestedId ? modelTypeRegistry.get(requestedId) ?? null : null
 }
 
-function stepState(index: number, buildReady: boolean): StepState {
-  if (index === 0) return 'completed'
-  if (!buildReady) {
-    if (index === 1) return 'current'
-    if (index === 2) return 'available'
-    return 'future'
+function hasFrontReference() {
+  try {
+    const stored = localStorage.getItem(REFERENCE_SET_STORAGE_KEY)
+    if (!stored) return false
+    return Boolean((JSON.parse(stored) as ReferenceSetSnapshot).references?.front)
+  } catch {
+    return false
   }
-  if (index <= 3) return 'completed'
-  if (index === 4) return 'current'
-  if (index === 5) return 'available'
+}
+
+function hasReferenceAnalysis() {
+  return Boolean(localStorage.getItem(REFERENCE_ANALYSIS_STORAGE_KEY))
+}
+
+function currentStepIndexFor(frontReady: boolean, analysisReady: boolean, buildReady: boolean) {
+  if (!frontReady) return 1
+  if (!analysisReady) return 2
+  if (!buildReady) return 3
+  return 4
+}
+
+function stepState(index: number, currentStepIndex: number): StepState {
+  if (index < currentStepIndex) return 'completed'
+  if (index === currentStepIndex) return 'current'
+  if (index === currentStepIndex + 1) return 'available'
   return 'future'
 }
 
-function inspectorCopy(step: WorkflowStep, buildReady: boolean) {
+function inspectorCopy(step: WorkflowStep) {
   if (step === 'Add reference images') {
     return {
       title: 'Reference guidance',
       body: 'Add a clear front image first. Side and back views are optional and improve fidelity.',
     }
   }
-  if (step === 'Generate character' && buildReady) {
+  if (step === 'Place markers') {
+    return {
+      title: 'Marker guidance',
+      body: 'Use Fit to see the complete image, drag anywhere outside a marker to pan, and refine markers with pointer or keyboard controls.',
+    }
+  }
+  if (step === 'Review character shape') {
+    return {
+      title: 'Review the inferred shape',
+      body: 'Check the analyzed proportions and marker placement, then confirm the character type when the reference interpretation is correct.',
+    }
+  }
+  if (step === 'Generate character') {
     return {
       title: 'Ready to generate',
       body: 'Your confirmed reference and character shape are ready for the modeling pipeline.',
@@ -66,6 +106,8 @@ function inspectorCopy(step: WorkflowStep, buildReady: boolean) {
 
 function StudioShell() {
   const [selected, setSelected] = useState<ModelTypeManifest | null>(initialModelType)
+  const [frontReady, setFrontReady] = useState(hasFrontReference)
+  const [analysisReady, setAnalysisReady] = useState(hasReferenceAnalysis)
   const [buildReady, setBuildReady] = useState(false)
   const [stepsOpen, setStepsOpen] = useState(false)
   const [inspectorOpen, setInspectorOpen] = useState(false)
@@ -77,14 +119,100 @@ function StudioShell() {
     setBuildReady(false)
   }, [selected])
 
-  const currentStepIndex = buildReady ? 4 : 1
+  useEffect(() => {
+    const onReferenceSetChange = (event: Event) => {
+      const detail = (event as CustomEvent<ReferenceSetSnapshot>).detail
+      const nextFrontReady = Boolean(detail?.references?.front)
+      setFrontReady(nextFrontReady)
+      if (!nextFrontReady) setAnalysisReady(false)
+    }
+    const onAnalysisComplete = () => setAnalysisReady(true)
+    window.addEventListener('low-poly:reference-set-change', onReferenceSetChange)
+    window.addEventListener('low-poly:reference-analysis-complete', onAnalysisComplete)
+    return () => {
+      window.removeEventListener('low-poly:reference-set-change', onReferenceSetChange)
+      window.removeEventListener('low-poly:reference-analysis-complete', onAnalysisComplete)
+    }
+  }, [])
+
+  const currentStepIndex = currentStepIndexFor(frontReady, analysisReady, buildReady)
   const currentStep = WORKFLOW_STEPS[currentStepIndex]
-  const inspector = useMemo(() => inspectorCopy(currentStep, buildReady), [currentStep, buildReady])
+  const inspector = useMemo(() => inspectorCopy(currentStep), [currentStep])
+
+  useEffect(() => {
+    if (currentStep !== 'Place markers') return
+
+    let candidate: {
+      pointerId: number
+      pointerType: string
+      startX: number
+      startY: number
+      target: HTMLElement
+    } | null = null
+    let proxyStarted = false
+
+    const onPointerDown = (event: PointerEvent) => {
+      const directPanEvent = event as DirectPanPointerEvent
+      if (directPanEvent.__lowPolyDirectPanProxy || event.button !== 0) return
+      const target = event.target as HTMLElement | null
+      const canvas = target?.closest('.guidedStudioStep--2 .referenceWorkspace .canvas') as HTMLElement | null
+      if (!canvas || target?.closest('[data-landmark]')) return
+      candidate = {
+        pointerId: event.pointerId,
+        pointerType: event.pointerType,
+        startX: event.clientX,
+        startY: event.clientY,
+        target: canvas,
+      }
+      proxyStarted = false
+    }
+
+    const onPointerMove = (event: PointerEvent) => {
+      if (!candidate || event.pointerId !== candidate.pointerId || proxyStarted) return
+      const distance = Math.hypot(event.clientX - candidate.startX, event.clientY - candidate.startY)
+      if (distance < DIRECT_PAN_THRESHOLD) return
+
+      const proxy = new PointerEvent('pointerdown', {
+        bubbles: true,
+        cancelable: true,
+        composed: true,
+        pointerId: candidate.pointerId,
+        pointerType: candidate.pointerType,
+        isPrimary: event.isPrimary,
+        clientX: candidate.startX,
+        clientY: candidate.startY,
+        button: 0,
+        buttons: 1,
+        shiftKey: true,
+      }) as DirectPanPointerEvent
+      proxy.__lowPolyDirectPanProxy = true
+      candidate.target.dispatchEvent(proxy)
+      proxyStarted = true
+    }
+
+    const clearCandidate = (event: PointerEvent) => {
+      if (candidate && event.pointerId === candidate.pointerId) {
+        candidate = null
+        proxyStarted = false
+      }
+    }
+
+    document.addEventListener('pointerdown', onPointerDown, true)
+    document.addEventListener('pointermove', onPointerMove, true)
+    document.addEventListener('pointerup', clearCandidate, true)
+    document.addEventListener('pointercancel', clearCandidate, true)
+    return () => {
+      document.removeEventListener('pointerdown', onPointerDown, true)
+      document.removeEventListener('pointermove', onPointerMove, true)
+      document.removeEventListener('pointerup', clearCandidate, true)
+      document.removeEventListener('pointercancel', clearCandidate, true)
+    }
+  }, [currentStep])
 
   if (!selected) return <ModelTypeCatalog onSelect={setSelected} />
 
   return (
-    <div className="guidedStudioShell studioApplicationShell">
+    <div className={`guidedStudioShell studioApplicationShell guidedStudioStep--${currentStepIndex}`}>
       <header className="guidedStudioTopbar">
         <div className="guidedStudioBrand">
           <strong>Low Poly Character Studio</strong>
@@ -109,7 +237,7 @@ function StudioShell() {
           </div>
           <ol>
             {WORKFLOW_STEPS.map((step, index) => {
-              const state = stepState(index, buildReady)
+              const state = stepState(index, currentStepIndex)
               return (
                 <li key={step} className={`guidedStep guidedStep--${state}`} aria-current={state === 'current' ? 'step' : undefined}>
                   <span className="guidedStepNumber">{state === 'completed' ? '✓' : index + 1}</span>
@@ -127,11 +255,7 @@ function StudioShell() {
               <h1>{currentStep}</h1>
             </div>
             <div className="guidedPrimaryAction">
-              {buildReady ? (
-                <VerticalSliceBuildWorkflow modelTypeId={selected.id} />
-              ) : (
-                <button type="button" disabled title="Add and analyze a front reference, then confirm the model type">Generate character · setup required</button>
-              )}
+              {buildReady ? <VerticalSliceBuildWorkflow modelTypeId={selected.id} /> : null}
             </div>
           </div>
 
