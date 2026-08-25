@@ -48,7 +48,7 @@ Do not notify the product owner for routine task starts, commits, green CI, issu
 At the beginning of every run:
 
 1. Load the GitHub connector if its tools are not initially visible.
-2. Call `get_repo` for `JCDevBot/low-poly-character-studio`.
+2. Call `get_repo` for `JonCunninghamDev/low-poly-character-studio`.
 3. Confirm access, permissions, and that the default branch is `main`.
 4. Read this file plus:
    - `docs/product-vision.md`
