@@ -1,0 +1,131 @@
+/* Product-level responsive reflow uses familiar Bootstrap-style breakpoints.
+   Secondary chrome collapses before it can squeeze the creative workspace. */
+
+@media (max-width: 1399.98px) {
+  .landingHero {
+    grid-template-columns: minmax(0, 0.95fr) minmax(400px, 1.05fr);
+    gap: clamp(28px, 4vw, 56px);
+    padding: clamp(36px, 5vw, 68px) clamp(20px, 4vw, 56px) 52px;
+  }
+
+  .landingHeroCopy h1 {
+    font-size: clamp(40px, 5vw, 64px);
+    line-height: 1;
+  }
+
+  .landingProofStage {
+    min-height: clamp(420px, 46vw, 540px);
+  }
+
+  .guidedStudioBody {
+    grid-template-columns: 210px minmax(0, 1fr);
+  }
+
+  .guidedInspector {
+    position: fixed;
+    z-index: 70;
+    top: 58px;
+    right: 0;
+    bottom: 0;
+    width: min(360px, 92vw);
+    transform: translateX(100%);
+    transition: transform 0.18s ease;
+    box-shadow: -16px 0 40px rgba(0, 0, 0, 0.45);
+  }
+
+  .guidedInspector.isOpen {
+    transform: translateX(0);
+  }
+
+  .guidedStudioTopbarActions .guidedMobileControl:nth-child(2),
+  .guidedInspector .guidedDrawerClose {
+    display: inline-flex;
+  }
+}
+
+@media (max-width: 991.98px) {
+  .landingHero {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .landingProofStage {
+    min-height: clamp(400px, 64vw, 520px);
+  }
+
+  .guidedStudioTopbar {
+    grid-template-columns: minmax(0, 1fr) auto;
+    gap: 10px;
+  }
+
+  .guidedStudioProgress {
+    display: none;
+  }
+
+  .guidedStudioBody {
+    display: block;
+  }
+
+  .guidedStepRail {
+    position: fixed;
+    z-index: 80;
+    top: 58px;
+    left: 0;
+    bottom: 0;
+    width: min(320px, 92vw);
+    transform: translateX(-100%);
+    transition: transform 0.18s ease;
+    box-shadow: 16px 0 40px rgba(0, 0, 0, 0.45);
+  }
+
+  .guidedStepRail.isOpen {
+    transform: translateX(0);
+  }
+
+  .guidedStudioTopbarActions .guidedMobileControl:first-child,
+  .guidedStepRail .guidedDrawerClose {
+    display: inline-flex;
+  }
+
+  .guidedMainWorkspace {
+    width: 100%;
+    height: calc(100dvh - 58px);
+  }
+
+  .guidedStudioStep--1 .referenceWorkspace .layout,
+  .guidedStudioStep--2 .referenceWorkspace .layout,
+  .guidedStudioStep--3 .referenceWorkspace .layout {
+    grid-template-columns: minmax(0, 1fr);
+    grid-template-rows: minmax(58dvh, 1fr) minmax(220px, auto);
+  }
+}
+
+@media (max-height: 760px) and (min-width: 992px) {
+  .landingHero {
+    align-items: start;
+    padding-top: 32px;
+  }
+
+  .landingHeroCopy h1 {
+    margin-bottom: 14px;
+    font-size: clamp(38px, 4.7vw, 58px);
+  }
+
+  .landingLead {
+    font-size: clamp(16px, 1.5vw, 19px);
+  }
+
+  .landingHeroActions {
+    margin-top: 20px;
+  }
+
+  .landingProofStage {
+    min-height: clamp(390px, 62vh, 500px);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .guidedStepRail,
+  .guidedInspector {
+    transition: none;
+  }
+}
