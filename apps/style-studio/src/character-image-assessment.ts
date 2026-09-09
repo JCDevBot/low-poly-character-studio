@@ -28,9 +28,10 @@ export type AssessmentEvidence<T> = {
 
 type Bounds = { left: number; top: number; right: number; bottom: number }
 type Component = { area: number; left: number; top: number; right: number; bottom: number; centerX: number; centerY: number }
-type SupportMetrics = { direction: Exclude<GroundDirection, 'unknown'>; splitRatio: number; maxSupports: number }
+type SupportDirection = Exclude<GroundDirection, 'unknown'>
+type SupportMetrics = { direction: SupportDirection; splitRatio: number; maxSupports: number }
 
-type ForegroundAnalysis = {
+type ForegroundWorkingSet = {
   mask: Uint8Array
   foregroundCount: number
   averageSeparation: number
@@ -43,7 +44,7 @@ export type CharacterInputAssessment = {
   usability: AssessmentEvidence<'usable' | 'limited' | 'unusable'>
   subjectVisibility: AssessmentEvidence<number>
   backgroundSeparation: AssessmentEvidence<number>
-  foreground: ForegroundAnalysis
+  foreground: ForegroundWorkingSet
 }
 
 export type CharacterSubjectAssessment = {
@@ -54,6 +55,14 @@ export type CharacterSubjectAssessment = {
   compactness: number
   widthToHeight: number
   support: SupportMetrics | null
+}
+
+export type CharacterFeatureAssessment = {
+  bodyCore: AssessmentEvidence<boolean>
+  face: AssessmentEvidence<boolean>
+  eyes: AssessmentEvidence<number>
+  mouth: AssessmentEvidence<boolean>
+  lowerSupports: AssessmentEvidence<number>
 }
 
 export type CharacterOrientationAssessment = {
@@ -73,14 +82,6 @@ export type CharacterBodyPlanAssessment = {
   }>
 }
 
-export type CharacterFeatureAssessment = {
-  bodyCore: AssessmentEvidence<boolean>
-  face: AssessmentEvidence<boolean>
-  eyes: AssessmentEvidence<number>
-  mouth: AssessmentEvidence<boolean>
-  lowerSupports: AssessmentEvidence<number>
-}
-
 export type CharacterFunctionalAssessment = {
   rootCore: AssessmentEvidence<boolean>
   supportMode: AssessmentEvidence<'limbed' | 'body-contact' | 'unknown'>
@@ -92,9 +93,9 @@ export type CharacterImageAssessment = {
   adapterId: 'generic-local-silhouette-v2'
   input: CharacterInputAssessment
   subject: CharacterSubjectAssessment
+  features: CharacterFeatureAssessment
   orientation: CharacterOrientationAssessment
   bodyPlan: CharacterBodyPlanAssessment
-  features: CharacterFeatureAssessment
   functional: CharacterFunctionalAssessment
   userPrior?: {
     description: string
@@ -107,8 +108,20 @@ export type CharacterImageAssessment = {
   }
 }
 
+export type PersistedCharacterImageAssessment = Omit<CharacterImageAssessment, 'input'> & {
+  input: Omit<CharacterInputAssessment, 'foreground'>
+}
+
 function clamp(value: number, min = 0, max = 1) {
   return Math.max(min, Math.min(max, value))
+}
+
+function rubricLevel(confidence: number): RubricLevel {
+  if (confidence >= 0.9) return 4
+  if (confidence >= 0.72) return 3
+  if (confidence >= 0.5) return 2
+  if (confidence > 0) return 1
+  return 0
 }
 
 function pixelAt(image: RasterImage, x: number, y: number) {
@@ -131,14 +144,9 @@ function estimateBackground(image: RasterImage): [number, number, number] {
     pixelAt(image, 0, image.height - 1),
     pixelAt(image, image.width - 1, image.height - 1),
   ]
-  return [0, 1, 2].map((channel) => Math.round(samples.reduce((sum, sample) => sum + sample[channel], 0) / samples.length)) as [number, number, number]
-}
-
-function levelForConfidence(confidence: number): RubricLevel {
-  if (confidence >= 0.72) return 3
-  if (confidence >= 0.5) return 2
-  if (confidence > 0) return 1
-  return 0
+  return [0, 1, 2].map((channel) =>
+    Math.round(samples.reduce((sum, sample) => sum + sample[channel], 0) / samples.length)
+  ) as [number, number, number]
 }
 
 export function assessCharacterInput(image: RasterImage): CharacterInputAssessment {
@@ -184,15 +192,23 @@ export function assessCharacterInput(image: RasterImage): CharacterInputAssessme
   const usable = foregroundCount > 0 && visibilityConfidence >= 0.35 && separationConfidence >= 0.35
   const limited = foregroundCount > 0 && !usable
   const usability = usable ? 'usable' : limited ? 'limited' : 'unusable'
-  const usabilityConfidence = usable ? Math.min(visibilityConfidence, separationConfidence) : limited ? Math.max(0.35, separationConfidence) : 1
+  const usabilityConfidence = usable
+    ? Math.min(visibilityConfidence, separationConfidence)
+    : limited
+      ? Math.max(0.35, separationConfidence)
+      : 1
 
   return {
     usability: {
       value: usability,
       confidence: usabilityConfidence,
-      rubricLevel: usable ? levelForConfidence(usabilityConfidence) : limited ? 1 : 0,
+      rubricLevel: usable ? rubricLevel(usabilityConfidence) : limited ? 1 : 0,
       origin: 'measured',
-      note: limited ? 'A subject can be separated, but image quality is below the classification gate.' : unusable ? 'No reliable foreground subject could be isolated.' : undefined,
+      note: limited
+        ? 'A subject can be separated, but image quality is below the classification gate.'
+        : usability === 'unusable'
+          ? 'No reliable foreground subject could be isolated.'
+          : undefined,
     },
     subjectVisibility: { value: coverage, confidence: visibilityConfidence, rubricLevel: 4, origin: 'measured' },
     backgroundSeparation: { value: averageSeparation, confidence: separationConfidence, rubricLevel: 4, origin: 'measured' },
@@ -224,7 +240,7 @@ function boundsForMask(mask: Uint8Array, width: number, height: number): Bounds 
   return right >= left && bottom >= top ? { left, top, right, bottom } : null
 }
 
-function rowRunCount(mask: Uint8Array, width: number, y: number, left: number, right: number) {
+function rowRuns(mask: Uint8Array, width: number, y: number, left: number, right: number) {
   let runs = 0
   let active = false
   for (let x = left; x <= right; x += 1) {
@@ -235,7 +251,7 @@ function rowRunCount(mask: Uint8Array, width: number, y: number, left: number, r
   return runs
 }
 
-function columnRunCount(mask: Uint8Array, width: number, x: number, top: number, bottom: number) {
+function columnRuns(mask: Uint8Array, width: number, x: number, top: number, bottom: number) {
   let runs = 0
   let active = false
   for (let y = top; y <= bottom; y += 1) {
@@ -246,7 +262,7 @@ function columnRunCount(mask: Uint8Array, width: number, x: number, top: number,
   return runs
 }
 
-function directionalSupport(mask: Uint8Array, width: number, bounds: Bounds, direction: SupportMetrics['direction']): SupportMetrics {
+function supportToward(mask: Uint8Array, width: number, bounds: Bounds, direction: SupportDirection): SupportMetrics {
   const subjectWidth = bounds.right - bounds.left + 1
   const subjectHeight = bounds.bottom - bounds.top + 1
   let samples = 0
@@ -254,25 +270,21 @@ function directionalSupport(mask: Uint8Array, width: number, bounds: Bounds, dir
   let maxSupports = 1
 
   if (direction === 'bottom' || direction === 'top') {
-    const startRatio = direction === 'bottom' ? 0.62 : 0.04
-    const endRatio = direction === 'bottom' ? 0.96 : 0.38
-    const start = Math.round(bounds.top + subjectHeight * startRatio)
-    const end = Math.round(bounds.top + subjectHeight * endRatio)
+    const start = Math.round(bounds.top + subjectHeight * (direction === 'bottom' ? 0.62 : 0.04))
+    const end = Math.round(bounds.top + subjectHeight * (direction === 'bottom' ? 0.96 : 0.38))
     for (let y = start; y <= end; y += 1) {
-      const runs = rowRunCount(mask, width, y, bounds.left, bounds.right)
-      if (runs === 0) continue
+      const runs = rowRuns(mask, width, y, bounds.left, bounds.right)
+      if (!runs) continue
       samples += 1
       if (runs >= 2) splitSamples += 1
       maxSupports = Math.max(maxSupports, runs)
     }
   } else {
-    const startRatio = direction === 'right' ? 0.62 : 0.04
-    const endRatio = direction === 'right' ? 0.96 : 0.38
-    const start = Math.round(bounds.left + subjectWidth * startRatio)
-    const end = Math.round(bounds.left + subjectWidth * endRatio)
+    const start = Math.round(bounds.left + subjectWidth * (direction === 'right' ? 0.62 : 0.04))
+    const end = Math.round(bounds.left + subjectWidth * (direction === 'right' ? 0.96 : 0.38))
     for (let x = start; x <= end; x += 1) {
-      const runs = columnRunCount(mask, width, x, bounds.top, bounds.bottom)
-      if (runs === 0) continue
+      const runs = columnRuns(mask, width, x, bounds.top, bounds.bottom)
+      if (!runs) continue
       samples += 1
       if (runs >= 2) splitSamples += 1
       maxSupports = Math.max(maxSupports, runs)
@@ -282,9 +294,10 @@ function directionalSupport(mask: Uint8Array, width: number, bounds: Bounds, dir
   return { direction, splitRatio: samples ? splitSamples / samples : 0, maxSupports }
 }
 
-function bestSupportDirection(mask: Uint8Array, width: number, bounds: Bounds) {
-  const all = (['bottom', 'top', 'left', 'right'] as const).map((direction) => directionalSupport(mask, width, bounds, direction))
-  return all.sort((a, b) => (b.splitRatio + (b.maxSupports - 1) * 0.12) - (a.splitRatio + (a.maxSupports - 1) * 0.12))[0]
+function bestSupport(mask: Uint8Array, width: number, bounds: Bounds) {
+  return (['bottom', 'top', 'left', 'right'] as const)
+    .map((direction) => supportToward(mask, width, bounds, direction))
+    .sort((a, b) => (b.splitRatio + (b.maxSupports - 1) * 0.12) - (a.splitRatio + (a.maxSupports - 1) * 0.12))[0]
 }
 
 export function isolateCharacterSubject(image: RasterImage, input: CharacterInputAssessment): CharacterSubjectAssessment {
@@ -292,55 +305,51 @@ export function isolateCharacterSubject(image: RasterImage, input: CharacterInpu
   if (!bounds) {
     return { available: false, bounds: null, center: null, coverage: 0, compactness: 0, widthToHeight: 0, support: null }
   }
+
   const subjectWidth = bounds.right - bounds.left + 1
   const subjectHeight = bounds.bottom - bounds.top + 1
-  const coverage = input.foreground.foregroundCount / (image.width * image.height)
   return {
     available: true,
     bounds,
     center: { x: (bounds.left + bounds.right) / 2, y: (bounds.top + bounds.bottom) / 2 },
-    coverage,
+    coverage: input.foreground.foregroundCount / (image.width * image.height),
     compactness: input.foreground.foregroundCount / (subjectWidth * subjectHeight),
     widthToHeight: subjectWidth / subjectHeight,
-    support: bestSupportDirection(input.foreground.mask, image.width, bounds),
+    support: bestSupport(input.foreground.mask, image.width, bounds),
   }
 }
 
-function darkInteriorComponents(image: RasterImage, input: CharacterInputAssessment, bounds: Bounds): Component[] {
+function darkComponents(image: RasterImage, input: CharacterInputAssessment, bounds: Bounds): Component[] {
   const mask = input.foreground.mask
-  const width = image.width
-  const height = image.height
-  const visited = new Uint8Array(width * height)
-  const threshold = input.foreground.averageForegroundLuminance - 42
-  const boundWidth = bounds.right - bounds.left + 1
-  const boundHeight = bounds.bottom - bounds.top + 1
-  const minArea = Math.max(2, Math.round(boundWidth * boundHeight * 0.0008))
-  const maxArea = Math.max(minArea + 1, Math.round(boundWidth * boundHeight * 0.08))
+  const visited = new Uint8Array(image.width * image.height)
+  const darknessThreshold = input.foreground.averageForegroundLuminance - 42
+  const area = (bounds.right - bounds.left + 1) * (bounds.bottom - bounds.top + 1)
+  const minArea = Math.max(2, Math.round(area * 0.0008))
+  const maxArea = Math.max(minArea + 1, Math.round(area * 0.08))
   const components: Component[] = []
 
-  const candidate = (x: number, y: number) => {
-    if (x <= bounds.left || x >= bounds.right || y <= bounds.top || y >= bounds.bottom) return false
-    if (!mask[y * width + x]) return false
-    return luminance(pixelAt(image, x, y)) <= threshold
-  }
+  const candidate = (x: number, y: number) =>
+    x > bounds.left && x < bounds.right && y > bounds.top && y < bounds.bottom &&
+    mask[y * image.width + x] === 1 && luminance(pixelAt(image, x, y)) <= darknessThreshold
 
   for (let y = bounds.top + 1; y < bounds.bottom; y += 1) {
     for (let x = bounds.left + 1; x < bounds.right; x += 1) {
-      const index = y * width + x
+      const index = y * image.width + x
       if (visited[index] || !candidate(x, y)) continue
       const queue: Array<[number, number]> = [[x, y]]
       visited[index] = 1
       let cursor = 0
-      let area = 0
+      let componentArea = 0
       let left = x
       let right = x
       let top = y
       let bottom = y
       let sumX = 0
       let sumY = 0
+
       while (cursor < queue.length) {
         const [cx, cy] = queue[cursor++]
-        area += 1
+        componentArea += 1
         sumX += cx
         sumY += cy
         left = Math.min(left, cx)
@@ -348,16 +357,20 @@ function darkInteriorComponents(image: RasterImage, input: CharacterInputAssessm
         top = Math.min(top, cy)
         bottom = Math.max(bottom, cy)
         for (const [nx, ny] of [[cx - 1, cy], [cx + 1, cy], [cx, cy - 1], [cx, cy + 1]] as const) {
-          if (nx < 0 || nx >= width || ny < 0 || ny >= height) continue
-          const next = ny * width + nx
+          if (nx < 0 || nx >= image.width || ny < 0 || ny >= image.height) continue
+          const next = ny * image.width + nx
           if (visited[next] || !candidate(nx, ny)) continue
           visited[next] = 1
           queue.push([nx, ny])
         }
       }
-      if (area >= minArea && area <= maxArea) components.push({ area, left, top, right, bottom, centerX: sumX / area, centerY: sumY / area })
+
+      if (componentArea >= minArea && componentArea <= maxArea) {
+        components.push({ componentArea, area: componentArea, left, right, top, bottom, centerX: sumX / componentArea, centerY: sumY / componentArea } as Component)
+      }
     }
   }
+
   return components
 }
 
@@ -366,27 +379,36 @@ function inferFace(components: Component[], bounds: Bounds) {
   const height = bounds.bottom - bounds.top + 1
   const upper = components.filter((component) => component.centerY <= bounds.top + height * 0.68)
   const pairs: Array<[Component, Component]> = []
+
   for (let i = 0; i < upper.length; i += 1) {
     for (let j = i + 1; j < upper.length; j += 1) {
       const a = upper[i]
       const b = upper[j]
-      const yDifference = Math.abs(a.centerY - b.centerY) / height
-      const xDifference = Math.abs(a.centerX - b.centerX) / width
-      if (yDifference <= 0.08 && xDifference >= 0.12 && xDifference <= 0.65) pairs.push([a, b])
+      const yDelta = Math.abs(a.centerY - b.centerY) / height
+      const xDelta = Math.abs(a.centerX - b.centerX) / width
+      if (yDelta <= 0.08 && xDelta >= 0.12 && xDelta <= 0.65) pairs.push([a, b])
     }
   }
+
   const eyes = pairs.sort((a, b) => Math.abs(a[0].centerY - a[1].centerY) - Math.abs(b[0].centerY - b[1].centerY))[0]
   if (!eyes) return { hasFace: false, eyeCount: 0, hasMouth: false, confidence: 0 }
+
   const eyeY = (eyes[0].centerY + eyes[1].centerY) / 2
   const mouth = components.find((component) => {
     const componentWidth = component.right - component.left + 1
     const componentHeight = component.bottom - component.top + 1
-    return component.centerY > eyeY + height * 0.05 && component.centerY < bounds.top + height * 0.8 && componentWidth >= componentHeight * 1.35
+    return component.centerY > eyeY + height * 0.05 &&
+      component.centerY < bounds.top + height * 0.8 &&
+      componentWidth >= componentHeight * 1.35
   })
   return { hasFace: true, eyeCount: 2, hasMouth: Boolean(mouth), confidence: mouth ? 0.88 : 0.72 }
 }
 
-export function observeCharacterFeatures(image: RasterImage, input: CharacterInputAssessment, subject: CharacterSubjectAssessment): CharacterFeatureAssessment {
+export function observeCharacterFeatures(
+  image: RasterImage,
+  input: CharacterInputAssessment,
+  subject: CharacterSubjectAssessment,
+): CharacterFeatureAssessment {
   if (!subject.available || !subject.bounds) {
     return {
       bodyCore: { value: false, confidence: 1, rubricLevel: 0, origin: 'unavailable' },
@@ -396,19 +418,52 @@ export function observeCharacterFeatures(image: RasterImage, input: CharacterInp
       lowerSupports: { value: 0, confidence: 1, rubricLevel: 0, origin: 'unavailable' },
     }
   }
-  const face = inferFace(darkInteriorComponents(image, input, subject.bounds), subject.bounds)
+
+  const face = inferFace(darkComponents(image, input, subject.bounds), subject.bounds)
   const supportCount = subject.support?.maxSupports ?? 1
   const supportConfidence = clamp((subject.support?.splitRatio ?? 0) + (supportCount > 1 ? 0.25 : 0))
+
   return {
     bodyCore: { value: true, confidence: 0.98, rubricLevel: 4, origin: 'measured' },
-    face: { value: face.hasFace, confidence: face.hasFace ? face.confidence : 0.35, rubricLevel: face.hasFace ? levelForConfidence(face.confidence) : 1, origin: face.hasFace ? 'inferred' : 'unavailable' },
-    eyes: { value: face.eyeCount, confidence: face.hasFace ? face.confidence : 0.25, rubricLevel: face.hasFace ? levelForConfidence(face.confidence) : 1, origin: face.hasFace ? 'inferred' : 'unavailable' },
-    mouth: { value: face.hasMouth, confidence: face.hasMouth ? face.confidence : face.hasFace ? 0.45 : 0.2, rubricLevel: face.hasMouth ? levelForConfidence(face.confidence) : 1, origin: face.hasMouth ? 'inferred' : 'unavailable' },
+    face: { value: face.hasFace, confidence: face.hasFace ? face.confidence : 0.35, rubricLevel: face.hasFace ? rubricLevel(face.confidence) : 1, origin: face.hasFace ? 'inferred' : 'unavailable' },
+    eyes: { value: face.eyeCount, confidence: face.hasFace ? face.confidence : 0.25, rubricLevel: face.hasFace ? rubricLevel(face.confidence) : 1, origin: face.hasFace ? 'inferred' : 'unavailable' },
+    mouth: { value: face.hasMouth, confidence: face.hasMouth ? face.confidence : face.hasFace ? 0.45 : 0.2, rubricLevel: face.hasMouth ? rubricLevel(face.confidence) : 1, origin: face.hasMouth ? 'inferred' : 'unavailable' },
     lowerSupports: { value: supportCount, confidence: supportConfidence, rubricLevel: 4, origin: 'measured' },
   }
 }
 
-function descriptionPrior(description?: string): CharacterImageAssessment['userPrior'] {
+function imageUpForGround(direction: GroundDirection): ImageDirection {
+  if (direction === 'bottom') return 'up'
+  if (direction === 'top') return 'down'
+  if (direction === 'left') return 'right'
+  if (direction === 'right') return 'left'
+  return 'unknown'
+}
+
+export function assessCharacterOrientation(
+  features: CharacterFeatureAssessment,
+  subject: CharacterSubjectAssessment,
+): CharacterOrientationAssessment {
+  const support = subject.support
+  const supportReliable = Boolean(support && support.maxSupports >= 2 && support.splitRatio >= 0.14)
+  const ground = supportReliable ? support!.direction : 'unknown'
+  const groundConfidence = supportReliable ? clamp(support!.splitRatio + (support!.maxSupports - 1) * 0.1) : 0.2
+  const faceConfidence = features.face.value ? features.face.confidence ?? 0.7 : 0.2
+
+  return {
+    facing: features.face.value
+      ? { value: 'front', confidence: faceConfidence, rubricLevel: rubricLevel(faceConfidence), origin: 'inferred', note: 'Paired eye-like marks support a front-facing interpretation.' }
+      : { value: 'unknown', confidence: 0.2, rubricLevel: 1, origin: 'unavailable', note: 'No reliable face-orientation cue detected.' },
+    groundDirection: supportReliable
+      ? { value: ground, confidence: groundConfidence, rubricLevel: rubricLevel(groundConfidence), origin: 'inferred' }
+      : { value: 'unknown', confidence: 0.2, rubricLevel: 1, origin: 'unavailable' },
+    imageUp: supportReliable
+      ? { value: imageUpForGround(ground), confidence: groundConfidence, rubricLevel: rubricLevel(groundConfidence), origin: 'inferred' }
+      : { value: 'unknown', confidence: 0.2, rubricLevel: 1, origin: 'unavailable' },
+  }
+}
+
+function userPrior(description?: string): CharacterImageAssessment['userPrior'] {
   const cleaned = description?.trim()
   if (!cleaned) return undefined
   const text = cleaned.toLowerCase()
@@ -420,58 +475,36 @@ function descriptionPrior(description?: string): CharacterImageAssessment['userP
   return { description: cleaned, suggestedBodyPlan, confidence: suggestedBodyPlan ? 0.72 : 0.25 }
 }
 
-function imageUpForGround(direction: GroundDirection): ImageDirection {
-  if (direction === 'bottom') return 'up'
-  if (direction === 'top') return 'down'
-  if (direction === 'left') return 'right'
-  if (direction === 'right') return 'left'
-  return 'unknown'
-}
-
-export function assessCharacterOrientation(features: CharacterFeatureAssessment, subject: CharacterSubjectAssessment): CharacterOrientationAssessment {
-  const support = subject.support
-  const supportReliable = Boolean(support && support.maxSupports >= 2 && support.splitRatio >= 0.14)
-  const ground: GroundDirection = supportReliable ? support!.direction : 'unknown'
-  const groundConfidence = supportReliable ? clamp(support!.splitRatio + (support!.maxSupports - 1) * 0.1) : 0.2
-  const faceConfidence = features.face.value ? features.face.confidence ?? 0.7 : 0.2
-  return {
-    facing: features.face.value
-      ? { value: 'front', confidence: faceConfidence, rubricLevel: levelForConfidence(faceConfidence), origin: 'inferred', note: 'paired eye-like marks support a front-facing interpretation' }
-      : { value: 'unknown', confidence: 0.2, rubricLevel: 1, origin: 'unavailable', note: 'no reliable face-orientation cue detected' },
-    groundDirection: supportReliable
-      ? { value: ground, confidence: groundConfidence, rubricLevel: levelForConfidence(groundConfidence), origin: 'inferred' }
-      : { value: 'unknown', confidence: 0.2, rubricLevel: 1, origin: 'unavailable' },
-    imageUp: supportReliable
-      ? { value: imageUpForGround(ground), confidence: groundConfidence, rubricLevel: levelForConfidence(groundConfidence), origin: 'inferred' }
-      : { value: 'unknown', confidence: 0.2, rubricLevel: 1, origin: 'unavailable' },
-  }
-}
-
 export function assessCharacterBodyPlan(
   input: CharacterInputAssessment,
   subject: CharacterSubjectAssessment,
   prior?: CharacterImageAssessment['userPrior'],
 ): CharacterBodyPlanAssessment {
   if (!subject.available || !subject.bounds) {
-    return {
-      selected: { value: 'unknown', confidence: null, rubricLevel: 0, origin: 'unavailable', note: 'No subject silhouette is available.' },
-      candidates: [],
-    }
+    return { selected: { value: 'unknown', confidence: null, rubricLevel: 0, origin: 'unavailable' }, candidates: [] }
   }
 
   const support = subject.support
   const splitRatio = support?.splitRatio ?? 0
   const supportCount = support?.maxSupports ?? 1
-  const groundAxisIsVertical = support?.direction === 'bottom' || support?.direction === 'top'
-  const orientedTallness = groundAxisIsVertical ? 1 / subject.widthToHeight : support ? subject.widthToHeight : Math.max(subject.widthToHeight, 1 / subject.widthToHeight)
+  const verticalGroundAxis = support?.direction === 'bottom' || support?.direction === 'top'
+  const orientedTallness = verticalGroundAxis
+    ? 1 / subject.widthToHeight
+    : support
+      ? subject.widthToHeight
+      : Math.max(subject.widthToHeight, 1 / subject.widthToHeight)
   const maxAspect = Math.max(subject.widthToHeight, 1 / subject.widthToHeight)
+
   const humanoidScore = clamp((orientedTallness - 1.05) * 0.45 + splitRatio * 0.72 + (supportCount === 2 ? 0.12 : 0) - (supportCount >= 3 ? 0.3 : 0))
   const blobBase = clamp((1 - Math.abs(subject.widthToHeight - 1) / 0.75) * 0.48 + subject.compactness * 0.42 + (1 - splitRatio) * 0.28)
   const blobScore = clamp(blobBase * (supportCount <= 1 ? 1 : 0.72))
-  const quadrupedScore = clamp((groundAxisIsVertical ? subject.widthToHeight - 0.95 : (1 / Math.max(subject.widthToHeight, 1e-6)) - 0.95) * 0.5 + (supportCount >= 3 ? 0.55 : 0) + splitRatio * 0.2)
+  const quadrupedScore = clamp(
+    (verticalGroundAxis ? subject.widthToHeight - 0.95 : (1 / Math.max(subject.widthToHeight, 1e-6)) - 0.95) * 0.5 +
+    (supportCount >= 3 ? 0.55 : 0) + splitRatio * 0.2
+  )
   const serpentineScore = clamp((maxAspect - 1.8) * 0.45 + (1 - splitRatio) * 0.18 - (supportCount >= 2 ? 0.2 : 0))
 
-  const raw = [
+  const candidates = [
     {
       id: 'articulated/humanoid-bipedal' as const,
       score: humanoidScore,
@@ -505,9 +538,7 @@ export function assessCharacterBodyPlan(
         ...(supportCount >= 3 ? ['three or more support regions detected'] : []),
         ...(splitRatio > 0.25 ? ['support-side silhouette repeatedly separates'] : []),
       ],
-      contradictions: [
-        ...(supportCount <= 1 ? ['no separated support regions detected'] : []),
-      ],
+      contradictions: [...(supportCount <= 1 ? ['no separated support regions detected'] : [])],
     },
     {
       id: 'elongated/serpentine' as const,
@@ -516,53 +547,66 @@ export function assessCharacterBodyPlan(
         ...(maxAspect > 2 ? ['strongly elongated silhouette'] : []),
         ...(splitRatio < 0.1 ? ['silhouette lacks stable support separation'] : []),
       ],
-      contradictions: [
-        ...(supportCount >= 2 ? ['multiple support regions detected'] : []),
-      ],
+      contradictions: [...(supportCount >= 2 ? ['multiple support regions detected'] : [])],
     },
   ]
 
   if (prior?.suggestedBodyPlan) {
-    const candidate = raw.find((item) => item.id === prior.suggestedBodyPlan)
+    const candidate = candidates.find((item) => item.id === prior.suggestedBodyPlan)
     if (candidate) {
       candidate.score = clamp(candidate.score + 0.12)
       candidate.evidence.push('user description supplies a weak directional prior')
     }
   }
 
-  const candidates = raw
+  const ranked = candidates
     .map((candidate) => ({
       id: candidate.id,
       confidence: Number(candidate.score.toFixed(3)),
-      rubricLevel: levelForConfidence(candidate.score),
+      rubricLevel: rubricLevel(candidate.score),
       evidence: candidate.evidence,
       contradictions: candidate.contradictions,
     }))
     .sort((a, b) => b.confidence - a.confidence)
 
-  const top = candidates[0]
-  const second = candidates[1]
+  const top = ranked[0]
+  const second = ranked[1]
   const separation = top.confidence - second.confidence
   const qualityGate = input.usability.value === 'usable'
   const classified = qualityGate && top.confidence >= 0.58 && separation >= 0.08
+
   return {
     selected: classified
-      ? { value: top.id, confidence: top.confidence, rubricLevel: levelForConfidence(top.confidence), origin: 'inferred' }
-      : { value: 'unknown', confidence: Math.min(top.confidence, 0.49), rubricLevel: qualityGate ? 1 : 0, origin: 'inferred', note: qualityGate ? 'Top morphology candidates are not sufficiently separated; abstaining.' : 'Image quality does not meet the morphology classification gate.' },
-    candidates,
+      ? { value: top.id, confidence: top.confidence, rubricLevel: rubricLevel(top.confidence), origin: 'inferred' }
+      : {
+          value: 'unknown',
+          confidence: Math.min(top.confidence, 0.49),
+          rubricLevel: qualityGate ? 1 : 0,
+          origin: 'inferred',
+          note: qualityGate
+            ? 'Top morphology candidates are not sufficiently separated; abstaining.'
+            : 'Image quality does not meet the morphology classification gate.',
+        },
+    candidates: ranked,
   }
 }
 
-export function inferCharacterFunction(bodyPlan: CharacterBodyPlanAssessment, subject: CharacterSubjectAssessment): CharacterFunctionalAssessment {
+export function inferCharacterFunction(
+  bodyPlan: CharacterBodyPlanAssessment,
+  subject: CharacterSubjectAssessment,
+): CharacterFunctionalAssessment {
   const selected = bodyPlan.selected.value
-  const hasSubject = subject.available
   const supportCount = subject.support?.maxSupports ?? 0
   const limbed = selected === 'articulated/humanoid-bipedal' || selected === 'articulated/quadrupedal' || supportCount >= 2
   const bodyContact = selected === 'compact/blob-amorphous' || selected === 'elongated/serpentine'
-  const locomotion = selected === 'compact/blob-amorphous' ? 'bounce-squash' : selected === 'elongated/serpentine' ? 'slither' : limbed ? 'walk' : 'unknown'
+  const locomotion: 'walk' | 'bounce-squash' | 'slither' | 'unknown' =
+    selected === 'compact/blob-amorphous' ? 'bounce-squash' :
+      selected === 'elongated/serpentine' ? 'slither' :
+        limbed ? 'walk' : 'unknown'
+
   return {
-    rootCore: hasSubject
-      ? { value: true, confidence: 0.9, rubricLevel: 3, origin: 'inferred' }
+    rootCore: subject.available
+      ? { value: true, confidence: 0.9, rubricLevel: 4, origin: 'inferred' }
       : { value: false, confidence: 1, rubricLevel: 0, origin: 'unavailable' },
     supportMode: limbed
       ? { value: 'limbed', confidence: 0.7, rubricLevel: 2, origin: 'inferred' }
@@ -571,7 +615,7 @@ export function inferCharacterFunction(bodyPlan: CharacterBodyPlanAssessment, su
         : { value: 'unknown', confidence: 0.2, rubricLevel: 1, origin: 'unavailable' },
     locomotionHint: locomotion === 'unknown'
       ? { value: 'unknown', confidence: 0.2, rubricLevel: 1, origin: 'unavailable' }
-      : { value: locomotion, confidence: 0.62, rubricLevel: 2, origin: 'inferred', note: 'Functional hypothesis only; animation/capability confirmation occurs later.' },
+      : { value: locomotion, confidence: 0.62, rubricLevel: 2, origin: 'inferred', note: 'Functional hypothesis only; capability confirmation happens later.' },
   }
 }
 
@@ -580,12 +624,13 @@ export function analyzeCharacterRaster(image: RasterImage, options: { descriptio
   const subject = isolateCharacterSubject(image, input)
   const features = observeCharacterFeatures(image, input, subject)
   const orientation = assessCharacterOrientation(features, subject)
-  const userPrior = descriptionPrior(options.description)
-  const bodyPlan = assessCharacterBodyPlan(input, subject, userPrior)
+  const prior = userPrior(options.description)
+  const bodyPlan = assessCharacterBodyPlan(input, subject, prior)
   const functional = inferCharacterFunction(bodyPlan, subject)
   const top = bodyPlan.candidates[0]
   const second = bodyPlan.candidates[1]
   const classified = bodyPlan.selected.value !== 'unknown'
+
   const reason = classified
     ? `${bodyPlan.selected.value} is supported at confidence ${(bodyPlan.selected.confidence ?? 0).toFixed(3)} after image-quality and ambiguity gates.`
     : input.usability.value !== 'usable'
@@ -599,11 +644,44 @@ export function analyzeCharacterRaster(image: RasterImage, options: { descriptio
     adapterId: 'generic-local-silhouette-v2',
     input,
     subject,
+    features,
     orientation,
     bodyPlan,
-    features,
     functional,
-    userPrior,
+    userPrior: prior,
     decision: { outcome: classified ? 'classified' : 'unresolved', reason },
   }
+}
+
+export function persistableCharacterImageAssessment(
+  assessment: CharacterImageAssessment,
+): PersistedCharacterImageAssessment {
+  const { foreground: _foreground, ...input } = assessment.input
+  return { ...assessment, input }
+}
+
+export async function analyzeCharacterImageUrl(
+  url: string,
+  options: { description?: string; maxDimension?: number } = {},
+): Promise<CharacterImageAssessment> {
+  const image = new Image()
+  image.crossOrigin = 'anonymous'
+  await new Promise<void>((resolve, reject) => {
+    image.onload = () => resolve()
+    image.onerror = () => reject(new Error('The reference image could not be decoded for generic assessment.'))
+    image.src = url
+  })
+
+  const maxDimension = options.maxDimension ?? 512
+  const scale = Math.min(1, maxDimension / Math.max(image.naturalWidth, image.naturalHeight))
+  const width = Math.max(16, Math.round(image.naturalWidth * scale))
+  const height = Math.max(16, Math.round(image.naturalHeight * scale))
+  const canvas = document.createElement('canvas')
+  canvas.width = width
+  canvas.height = height
+  const context = canvas.getContext('2d', { willReadFrequently: true })
+  if (!context) throw new Error('Canvas image assessment is unavailable in this browser.')
+  context.drawImage(image, 0, 0, width, height)
+  const raster = context.getImageData(0, 0, width, height)
+  return analyzeCharacterRaster({ width, height, data: raster.data }, { description: options.description })
 }
