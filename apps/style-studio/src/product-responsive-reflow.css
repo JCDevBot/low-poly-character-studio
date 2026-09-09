@@ -205,7 +205,7 @@
   }
 
   .landingCourse {
-    inset-bottom: 76px;
+    bottom: 76px;
   }
 
   .landingProofCaption {
