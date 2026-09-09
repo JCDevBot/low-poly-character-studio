@@ -8,7 +8,7 @@ const rigCompatible = [RIG_ID] as const;
 
 export const humanoidChibiStyleKitV1 = validateStyleKitContract({
   contractVersion: STYLE_KIT_CONTRACT_VERSION,
-  id: "humanoid/chibi-style-kit",
+  id: "humanoid/chibi/style-kit",
   version: "1.0.0",
   modelTypeId: "humanoid/chibi-v1",
   rigId: RIG_ID,
