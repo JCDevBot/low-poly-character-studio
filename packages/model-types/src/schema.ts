@@ -1,3 +1,12 @@
+import {
+  BASELINE_CHARACTER_ACTIONS,
+  CHARACTER_CAPABILITY_CONTRACT_VERSION,
+  FUNCTIONAL_PART_ROLES,
+  type FunctionalPartRole,
+  type ModelTypeCharacterCapabilityContract,
+  type ModelTypeSemanticActionDeclaration,
+  type SemanticActionId,
+} from "./capability-contracts";
 import type {
   ModelTypeCapabilities,
   ModelTypeExpectedPart,
@@ -89,6 +98,34 @@ function validateStringArray(value: unknown, path: string, issues: ManifestValid
   return result;
 }
 
+function validateFunctionalRoles(
+  value: unknown,
+  path: string,
+  issues: ManifestValidationIssue[],
+): readonly FunctionalPartRole[] | undefined {
+  if (value === undefined) return undefined;
+  if (!Array.isArray(value) || value.length === 0) {
+    issues.push({ path, message: "must be a non-empty array when provided" });
+    return [];
+  }
+  const roles: FunctionalPartRole[] = [];
+  const seen = new Set<string>();
+  value.forEach((entry, index) => {
+    const entryPath = `${path}[${index}]`;
+    if (!nonEmptyString(entry) || !FUNCTIONAL_PART_ROLES.includes(entry as FunctionalPartRole)) {
+      issues.push({ path: entryPath, message: `must be one of: ${FUNCTIONAL_PART_ROLES.join(", ")}` });
+      return;
+    }
+    if (seen.has(entry)) {
+      issues.push({ path: entryPath, message: `duplicate functional role '${entry}'` });
+      return;
+    }
+    seen.add(entry);
+    roles.push(entry as FunctionalPartRole);
+  });
+  return roles;
+}
+
 function validateReferenceSlots(value: unknown, issues: ManifestValidationIssue[]): readonly ModelTypeReferenceSlot[] {
   if (!Array.isArray(value) || value.length === 0) {
     issues.push({ path: "manifest.referenceSlots", message: "must be a non-empty array" });
@@ -154,6 +191,7 @@ function validateExpectedParts(value: unknown, issues: ManifestValidationIssue[]
       parentId,
       attachmentRole: attachmentRole === "root" || attachmentRole === "surface" ? attachmentRole : "attached",
       deformationRole: deformationRole === "skinned" || deformationRole === "presentation" ? deformationRole : "rigid",
+      functionalRoles: validateFunctionalRoles(part.functionalRoles, `${path}.functionalRoles`, issues),
     };
   });
   const ids = new Set(parts.map((part) => part.id));
@@ -163,6 +201,79 @@ function validateExpectedParts(value: unknown, issues: ManifestValidationIssue[]
     }
   });
   return parts;
+}
+
+function validateCharacterCapabilities(
+  value: unknown,
+  issues: ManifestValidationIssue[],
+): ModelTypeCharacterCapabilityContract | undefined {
+  if (value === undefined) return undefined;
+  if (!isRecord(value)) {
+    issues.push({ path: "manifest.characterCapabilities", message: "must be an object" });
+    return undefined;
+  }
+
+  const contractVersion = readString(value, "contractVersion", "manifest.characterCapabilities", issues);
+  if (contractVersion && contractVersion !== CHARACTER_CAPABILITY_CONTRACT_VERSION) {
+    issues.push({
+      path: "manifest.characterCapabilities.contractVersion",
+      message: `must equal '${CHARACTER_CAPABILITY_CONTRACT_VERSION}'`,
+    });
+  }
+
+  if (!Array.isArray(value.semanticActions) || value.semanticActions.length === 0) {
+    issues.push({ path: "manifest.characterCapabilities.semanticActions", message: "must be a non-empty array" });
+    return {
+      contractVersion: CHARACTER_CAPABILITY_CONTRACT_VERSION,
+      semanticActions: [],
+    };
+  }
+
+  const semanticActions: ModelTypeSemanticActionDeclaration[] = [];
+  const seen = new Set<string>();
+  value.semanticActions.forEach((action, index) => {
+    const path = `manifest.characterCapabilities.semanticActions[${index}]`;
+    if (!isRecord(action)) {
+      issues.push({ path, message: "must be an object" });
+      return;
+    }
+    const id = readString(action, "id", path, issues);
+    if (!BASELINE_CHARACTER_ACTIONS.includes(id as SemanticActionId)) {
+      issues.push({ path: `${path}.id`, message: `must be one of: ${BASELINE_CHARACTER_ACTIONS.join(", ")}` });
+      return;
+    }
+    if (seen.has(id)) {
+      issues.push({ path: `${path}.id`, message: `duplicate semantic action '${id}'` });
+      return;
+    }
+    seen.add(id);
+    semanticActions.push({
+      id: id as SemanticActionId,
+      required: readBoolean(action, "required", path, issues),
+      implementationId: readNullableString(action.implementationId, `${path}.implementationId`, issues),
+    });
+  });
+
+  const declarations = new Map(semanticActions.map((action) => [action.id, action]));
+  BASELINE_CHARACTER_ACTIONS.forEach((id) => {
+    const declaration = declarations.get(id);
+    if (!declaration) {
+      issues.push({
+        path: "manifest.characterCapabilities.semanticActions",
+        message: `missing required baseline semantic action '${id}'`,
+      });
+    } else if (!declaration.required) {
+      issues.push({
+        path: `manifest.characterCapabilities.semanticActions.${id}`,
+        message: "baseline semantic actions must be required",
+      });
+    }
+  });
+
+  return {
+    contractVersion: CHARACTER_CAPABILITY_CONTRACT_VERSION,
+    semanticActions,
+  };
 }
 
 function validateImplementations(value: unknown, issues: ManifestValidationIssue[]): ModelTypePipelineImplementations | undefined {
@@ -212,6 +323,8 @@ export function validateModelTypeManifest(input: unknown): ModelTypeManifest {
   const description = readString(input, "description", "manifest", issues);
   const referenceSlots = validateReferenceSlots(input.referenceSlots, issues);
   const capabilities = validateCapabilities(input.capabilities, issues);
+  const characterCapabilities = validateCharacterCapabilities(input.characterCapabilities, issues);
+  const expectedParts = validateExpectedParts(input.expectedParts, issues);
   const animations = validateStringArray(input.animations, "manifest.animations", issues);
   const output = validateStringArray(input.output, "manifest.output", issues);
   if (!output.includes("glb")) issues.push({ path: "manifest.output", message: "must include 'glb'" });
@@ -220,6 +333,16 @@ export function validateModelTypeManifest(input: unknown): ModelTypeManifest {
   if (capabilities.rigged && !nonEmptyString(rig)) issues.push({ path: "manifest.rig", message: "is required when rigged capability is enabled" });
   if (capabilities.animated && animations.length === 0) issues.push({ path: "manifest.animations", message: "must not be empty when animated capability is enabled" });
   if (!referenceSlots.some((slot) => slot.required)) issues.push({ path: "manifest.referenceSlots", message: "must include at least one required slot" });
+  if (characterCapabilities && expectedParts) {
+    expectedParts.forEach((part, index) => {
+      if (!part.functionalRoles || part.functionalRoles.length === 0) {
+        issues.push({
+          path: `manifest.expectedParts[${index}].functionalRoles`,
+          message: "character model parts must declare at least one functional role",
+        });
+      }
+    });
+  }
 
   const manifest: ModelTypeManifest = {
     id,
@@ -229,7 +352,8 @@ export function validateModelTypeManifest(input: unknown): ModelTypeManifest {
     description,
     referenceSlots,
     capabilities,
-    expectedParts: validateExpectedParts(input.expectedParts, issues),
+    characterCapabilities,
+    expectedParts,
     implementations: validateImplementations(input.implementations, issues),
     rig: nonEmptyString(rig) ? rig : null,
     animations,
