@@ -15,12 +15,25 @@ test('product surfaces reflow at Bootstrap-style XXL and LG breakpoints', async 
   assert.match(css, /@media \(max-width: 991\.98px\)[\s\S]*\.guidedStepRail \{[\s\S]*position: fixed/)
 })
 
-test('large-laptop and short-viewport landing layouts reduce hero crowding', async () => {
+test('desktop landing hero owns one dynamic viewport without clipping on short laptops', async () => {
   const css = await readFile(cssUrl, 'utf8')
 
-  assert.match(css, /\.landingHeroCopy h1 \{[\s\S]*font-size: clamp\(40px, 5vw, 64px\)/)
+  assert.match(css, /\.landingHero \{[\s\S]*min-height: calc\(100dvh - 72px\)/)
+  assert.match(css, /\.landingHeroCopy h1 \{[\s\S]*font-size: clamp\(36px, 3\.7vw, 50px\)/)
   assert.match(css, /@media \(max-height: 760px\) and \(min-width: 992px\)/)
-  assert.match(css, /@media \(max-height: 760px\)[\s\S]*\.landingProofStage \{[\s\S]*min-height: clamp\(390px, 62vh, 500px\)/)
+  assert.match(css, /@media \(max-height: 760px\)[\s\S]*\.landingHeader \{[\s\S]*min-height: 60px/)
+  assert.match(css, /@media \(max-height: 760px\)[\s\S]*\.landingHero \{[\s\S]*min-height: calc\(100dvh - 60px\)/)
+  assert.match(css, /@media \(max-height: 760px\)[\s\S]*\.landingProofStage \{[\s\S]*height: clamp\(350px, 60dvh, 390px\)/)
+})
+
+test('application screens keep outer viewport fixed and move overflow into bounded panels', async () => {
+  const css = await readFile(cssUrl, 'utf8')
+
+  assert.match(css, /@media \(min-width: 861px\)[\s\S]*\.modelCatalog \{[\s\S]*height: 100dvh;[\s\S]*overflow: hidden/)
+  assert.match(css, /@media \(min-width: 861px\)[\s\S]*\.modelCatalogGrid,[\s\S]*\.modelTypeDetail \{[\s\S]*overflow: auto/)
+  assert.match(css, /@media \(max-height: 760px\)[\s\S]*\.guidedStudioTopbar \{[\s\S]*min-height: 52px/)
+  assert.match(css, /@media \(max-height: 760px\)[\s\S]*\.guidedWorkspaceHeading \{[\s\S]*min-height: 50px/)
+  assert.match(css, /@media \(max-height: 760px\)[\s\S]*\.studioApplicationShell \.canvasViewport,[\s\S]*\.studioApplicationShell \.canvas \{[\s\S]*min-height: 220px/)
 })
 
 test('responsive reflow stylesheet is loaded after product surface styles', async () => {
