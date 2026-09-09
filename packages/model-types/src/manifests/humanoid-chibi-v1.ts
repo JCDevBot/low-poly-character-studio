@@ -1,4 +1,5 @@
 import { defineBaselineCharacterActions } from "../capability-contracts";
+import { humanoidChibiStyleKitV1 } from "../style-kits/humanoid-chibi-v1";
 import type { ModelTypeManifest } from "../types";
 
 export const humanoidChibiV1Manifest = {
@@ -21,6 +22,7 @@ export const humanoidChibiV1Manifest = {
       walk: "walk",
     }),
   },
+  styleKit: humanoidChibiStyleKitV1,
   expectedParts: [
     { id: "body", label: "Body", required: true, parentId: null, attachmentRole: "root", deformationRole: "skinned", functionalRoles: ["core"] },
     { id: "head", label: "Head", required: true, parentId: "body", attachmentRole: "attached", deformationRole: "skinned", functionalRoles: ["sensor", "articulator"] },
