@@ -5,7 +5,8 @@ ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 OUTPUT_DIR="${1:-$ROOT_DIR/image-analysis/output/responsive-studio}"
 PORT="${STUDIO_PREVIEW_PORT:-4173}"
 LANDING_URL="http://127.0.0.1:${PORT}/"
-BASE_URL="${LANDING_URL}?modelType=humanoid%2Fchibi-v1"
+HOW_IT_WORKS_URL="${LANDING_URL}#how-it-works"
+BASE_URL="${LANDING_URL}?guest=1&modelType=humanoid%2Fchibi-v1"
 
 find_chrome() {
   for candidate in google-chrome google-chrome-stable chromium chromium-browser; do
@@ -59,7 +60,10 @@ capture() {
 # desktop browser after tabs, address bar, and OS chrome consume vertical space.
 capture landing-1366x768 1366 768 "$LANDING_URL"
 capture landing-1366x600 1366 600 "$LANDING_URL"
+capture how-it-works-1366x600 1366 600 "$HOW_IT_WORKS_URL"
 
+# guest=1 provides a deterministic CI-only deep link into the real Studio shell.
+capture workspace-1366x600 1366 600 "$BASE_URL"
 capture viewport-320x568 320 568 "$BASE_URL"
 capture viewport-768x1024 768 1024 "$BASE_URL"
 capture viewport-1024x768 1024 768 "$BASE_URL"
@@ -77,6 +81,8 @@ output = Path(sys.argv[1])
 expected = {
     "landing-1366x768.png": (1366, 768),
     "landing-1366x600.png": (1366, 600),
+    "how-it-works-1366x600.png": (1366, 600),
+    "workspace-1366x600.png": (1366, 600),
     "viewport-320x568.png": (320, 568),
     "viewport-768x1024.png": (768, 1024),
     "viewport-1024x768.png": (1024, 768),
@@ -105,8 +111,9 @@ manifest = {
     ],
     "limitations": [
         "Automated screenshots verify rendered states and exact viewport dimensions.",
-        "landing-1366x600 approximates a 1366x768 desktop browser after browser and OS chrome consume vertical space.",
-        "Human review remains required for visual hierarchy, interaction, keyboard access, and browser zoom acceptance.",
+        "landing/how-it-works/workspace 1366x600 captures approximate a 1366x768 desktop browser after browser and OS chrome consume vertical space.",
+        "The deterministic guest route captures the real Studio shell before user-specific reference state is added.",
+        "Human review remains required for visual hierarchy, interaction, marker placement, keyboard access, and browser zoom acceptance.",
     ],
 }
 (output / "manifest.json").write_text(json.dumps(manifest, indent=2) + "\n", encoding="utf-8")
