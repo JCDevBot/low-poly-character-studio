@@ -16,6 +16,7 @@ import {
 
 type Props = {
   modelType: ModelTypeManifest
+  visible?: boolean
   onReadinessChange: (readiness: VerticalSliceReadiness) => void
 }
 
@@ -27,7 +28,7 @@ function readState() {
   }
 }
 
-function VerticalSliceReadinessPanel({ modelType, onReadinessChange }: Props) {
+function VerticalSliceReadinessPanel({ modelType, visible = true, onReadinessChange }: Props) {
   const [state, setState] = useState(readState)
   const readiness = useMemo(
     () => deriveVerticalSliceReadiness(modelType.id, state.referenceSet, state.analysis, state.confirmation),
@@ -67,40 +68,39 @@ function VerticalSliceReadinessPanel({ modelType, onReadinessChange }: Props) {
   const confidence = state.analysis?.confidence?.overall
   const expectedParts = modelType.expectedParts.filter((part) => part.required)
 
+  if (!visible) return null
+
+  const canConfirm = readiness.hasFrontReference && readiness.hasAnalysis && !readiness.modelTypeConfirmed
+  const summary = readiness.hasFrontReference && readiness.hasAnalysis
+    ? `${modelType.name} is the recommended character type${typeof confidence === 'number' ? ` at ${Math.round(confidence * 100)}% confidence` : ''}.`
+    : `Next: ${readiness.reasons[0] ?? 'Complete reference review.'}`
+
   return (
     <section className="verticalSliceReadiness" aria-labelledby="vertical-slice-readiness-title">
       <div className="verticalSliceReadinessHeading">
         <div>
-          <strong id="vertical-slice-readiness-title">Gold-standard build readiness</strong>
-          <small>Reference → analysis → model confirmation → persisted build</small>
+          <strong id="vertical-slice-readiness-title">Confirm character type</strong>
+          <small>One confirmation unlocks generation after reference and marker review.</small>
         </div>
-        <span data-ready={readiness.ready}>{readiness.ready ? 'Ready to build' : 'Setup required'}</span>
+        <span data-ready={readiness.ready}>{readiness.modelTypeConfirmed ? 'Confirmed' : 'Review'}</span>
       </div>
 
       <div className="verticalSliceReadinessRow">
-        <ol className="verticalSliceReadinessSteps">
-          <li data-complete={readiness.hasFrontReference}><strong>1</strong><span>Front reference</span></li>
-          <li data-complete={readiness.hasAnalysis}><strong>2</strong><span>Analysis</span></li>
-          <li data-complete={readiness.modelTypeConfirmed}><strong>3</strong><span>Confirm model type</span></li>
-        </ol>
+        <p className={readiness.ready ? 'verticalSliceNextStep ready' : 'verticalSliceNextStep'} role="status">
+          {readiness.ready ? `${modelType.name} confirmed. Generation is ready.` : summary}
+        </p>
         <button
           type="button"
           className="primary"
           onClick={confirmModelType}
-          disabled={!readiness.hasFrontReference || !readiness.hasAnalysis || readiness.modelTypeConfirmed}
+          disabled={!canConfirm}
         >
           {readiness.modelTypeConfirmed ? `${modelType.name} confirmed` : `Confirm ${modelType.name}`}
         </button>
       </div>
 
-      {!readiness.ready ? (
-        <p className="verticalSliceNextStep" role="status">Next: {readiness.reasons[0]}</p>
-      ) : (
-        <p className="verticalSliceNextStep ready" role="status">Validated build enabled. Editable landmarks are the StyleDNA source.</p>
-      )}
-
       <details className="verticalSliceEvidence">
-        <summary>Review recommendation and analysis evidence</summary>
+        <summary>Review recommendation details</summary>
         <div className="verticalSliceEvidenceBody">
           <p><strong>Recommended:</strong> {modelType.name} <code>{modelType.id}</code></p>
           <p>{modelType.description}</p>
