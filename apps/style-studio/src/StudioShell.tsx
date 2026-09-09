@@ -173,7 +173,6 @@ function StudioShell() {
   return <div className={`guidedStudioShell studioApplicationShell guidedStudioStep--${currentStepIndex}`}>
     <header className="guidedStudioTopbar">
       <div className="guidedStudioBrand"><strong>Low Poly Character Studio</strong><span>Guest project</span></div>
-      <div className="guidedStudioProgress" aria-live="polite"><strong>{currentStep}</strong><span>Step {currentStepIndex + 1} of {WORKFLOW_STEPS.length}</span></div>
       <div className="guidedStudioTopbarActions">
         <button type="button" className="guidedMobileControl" aria-expanded={stepsOpen} onClick={() => setStepsOpen((open) => !open)}>Steps</button>
         <button type="button" className="guidedMobileControl" aria-expanded={inspectorOpen} onClick={() => setInspectorOpen((open) => !open)}>Guidance</button>
@@ -194,9 +193,18 @@ function StudioShell() {
       </nav>
 
       <main className="guidedMainWorkspace">
-        <div className="guidedWorkspaceHeading"><div><span className="guidedEyebrow">{selected.name}</span><h1>{currentStep}</h1></div></div>
+        <div className="guidedWorkspaceHeading">
+          <div>
+            <span className="guidedEyebrow">{selected.name} · Step {currentStepIndex + 1} of {WORKFLOW_STEPS.length}</span>
+            <h1>{currentStep}</h1>
+          </div>
+        </div>
         {isReferenceStep ? <>
-          <VerticalSliceReadinessPanel modelType={selected} onReadinessChange={(readiness) => setBuildReady(readiness.ready)} />
+          <VerticalSliceReadinessPanel
+            modelType={selected}
+            visible={currentStepIndex === 3}
+            onReadinessChange={(readiness) => setBuildReady(readiness.ready)}
+          />
           <ReferenceWorkspace><App /></ReferenceWorkspace>
         </> : <VerticalSliceBuildWorkflow modelTypeId={selected.id} activeStep={buildStep} onStepChange={setBuildStep} />}
       </main>

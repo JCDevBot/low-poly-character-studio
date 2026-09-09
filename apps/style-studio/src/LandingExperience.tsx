@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 
 interface LandingExperienceProps {
   onContinueAsGuest: () => void
@@ -9,6 +9,14 @@ const pipelineSteps = ['References', 'Markers', 'Character', 'Rig and motion', '
 export function LandingExperience({ onContinueAsGuest }: LandingExperienceProps) {
   const [entryOpen, setEntryOpen] = useState(false)
   const [signInNotice, setSignInNotice] = useState(false)
+
+  useEffect(() => {
+    const targetId = window.location.hash.slice(1)
+    if (!targetId) return
+    requestAnimationFrame(() => {
+      document.getElementById(targetId)?.scrollIntoView({ block: 'start', behavior: 'auto' })
+    })
+  }, [])
 
   return (
     <main className="landingExperience">

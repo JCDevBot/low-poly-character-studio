@@ -8,11 +8,16 @@ import './canvas-native-scroll.css'
 import './landing-experience.css'
 import './guided-generation-workflow.css'
 import './product-responsive-reflow.css'
+import './studio-simplification.css'
 
 installCanvasNativeScroll()
 
+function guestRouteRequested() {
+  return new URLSearchParams(window.location.search).get('guest') === '1'
+}
+
 function App() {
-  const [guestStarted, setGuestStarted] = useState(false)
+  const [guestStarted, setGuestStarted] = useState(guestRouteRequested)
 
   if (guestStarted) {
     return <StudioShell />
