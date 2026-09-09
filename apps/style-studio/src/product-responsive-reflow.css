@@ -1,20 +1,38 @@
 /* Product-level responsive reflow uses familiar Bootstrap-style breakpoints.
    Secondary chrome collapses before it can squeeze the creative workspace. */
 
+/* The first landing screen owns one viewport on desktop. Long-form product
+   content may continue below it, but the hero itself must never be clipped by
+   browser chrome or a short laptop viewport. */
+.landingHero {
+  min-height: calc(100dvh - 72px);
+}
+
 @media (max-width: 1399.98px) {
   .landingHero {
-    grid-template-columns: minmax(0, 0.95fr) minmax(400px, 1.05fr);
-    gap: clamp(28px, 4vw, 56px);
-    padding: clamp(36px, 5vw, 68px) clamp(20px, 4vw, 56px) 52px;
+    grid-template-columns: minmax(0, 1.04fr) minmax(380px, 0.96fr);
+    gap: clamp(24px, 3vw, 44px);
+    min-height: calc(100dvh - 72px);
+    padding: clamp(24px, 4vh, 40px) clamp(20px, 3.5vw, 48px);
   }
 
   .landingHeroCopy h1 {
-    font-size: clamp(40px, 5vw, 64px);
-    line-height: 1;
+    font-size: clamp(36px, 3.7vw, 50px);
+    line-height: 0.98;
+  }
+
+  .landingLead {
+    max-width: 620px;
+    font-size: clamp(15px, 1.35vw, 18px);
+  }
+
+  .landingHeroActions {
+    margin-top: 20px;
   }
 
   .landingProofStage {
-    min-height: clamp(420px, 46vw, 540px);
+    min-height: 0;
+    height: clamp(360px, 62dvh, 500px);
   }
 
   .guidedStudioBody {
@@ -43,13 +61,53 @@
   }
 }
 
+/* Model selection is an application screen on desktop: the page stays fixed
+   to the viewport and dense catalog/detail content scrolls inside its panels. */
+@media (min-width: 861px) {
+  .modelCatalog {
+    display: grid;
+    grid-template-rows: auto minmax(0, 1fr);
+    width: 100%;
+    height: 100dvh;
+    min-height: 0;
+    padding: clamp(18px, 3vh, 28px) clamp(20px, 3vw, 32px);
+    overflow: hidden;
+  }
+
+  .modelCatalogHero {
+    width: 100%;
+    margin: 0 auto clamp(12px, 2vh, 20px);
+  }
+
+  .modelCatalogHero h1 {
+    margin: 5px 0;
+    font-size: clamp(1.8rem, 3vw, 2.8rem);
+  }
+
+  .modelCatalogLayout {
+    width: 100%;
+    height: 100%;
+    min-height: 0;
+  }
+
+  .modelCatalogGrid,
+  .modelTypeDetail {
+    min-height: 0;
+    overflow: auto;
+    overscroll-behavior: contain;
+    scrollbar-gutter: stable;
+  }
+}
+
 @media (max-width: 991.98px) {
   .landingHero {
     grid-template-columns: minmax(0, 1fr);
+    min-height: 0;
   }
 
   .landingProofStage {
-    min-height: clamp(400px, 64vw, 520px);
+    min-height: 0;
+    height: clamp(320px, 64vw, 500px);
   }
 
   .guidedStudioTopbar {
@@ -99,27 +157,107 @@
   }
 }
 
+/* Browser chrome can leave a 1366x768 laptop with only ~600px of CSS
+   viewport height. Compact both product surfaces before anything is cut off. */
 @media (max-height: 760px) and (min-width: 992px) {
+  .landingHeader {
+    min-height: 60px;
+    padding-top: 8px;
+    padding-bottom: 8px;
+  }
+
+  .landingBrandMark {
+    width: 34px;
+    height: 34px;
+  }
+
   .landingHero {
-    align-items: start;
-    padding-top: 32px;
+    align-items: center;
+    min-height: calc(100dvh - 60px);
+    gap: clamp(22px, 2.5vw, 36px);
+    padding-top: 18px;
+    padding-bottom: 18px;
   }
 
   .landingHeroCopy h1 {
-    margin-bottom: 14px;
-    font-size: clamp(38px, 4.7vw, 58px);
+    margin: 8px 0 12px;
+    font-size: clamp(34px, 3.25vw, 44px);
+    line-height: 0.96;
   }
 
   .landingLead {
-    font-size: clamp(16px, 1.5vw, 19px);
+    font-size: clamp(14px, 1.2vw, 17px);
+    line-height: 1.42;
   }
 
   .landingHeroActions {
-    margin-top: 20px;
+    margin-top: 14px;
+  }
+
+  .landingPrimaryButtonLarge {
+    padding: 11px 16px;
+    font-size: 15px;
   }
 
   .landingProofStage {
-    min-height: clamp(390px, 62vh, 500px);
+    min-height: 0;
+    height: clamp(350px, 60dvh, 390px);
+  }
+
+  .landingCourse {
+    bottom: 76px;
+  }
+
+  .landingProofCaption {
+    padding: 12px 16px;
+  }
+
+  .guidedStudioTopbar {
+    min-height: 52px;
+    padding-top: 6px;
+    padding-bottom: 6px;
+  }
+
+  .guidedInspector,
+  .guidedStepRail {
+    top: 52px;
+  }
+
+  .guidedWorkspaceHeading {
+    min-height: 50px;
+    padding: 6px 12px;
+  }
+
+  .verticalSliceReadiness {
+    gap: 0.3rem;
+    padding: 0.4rem 0.75rem;
+  }
+
+  .verticalSliceReadinessSteps {
+    gap: 0.5rem;
+  }
+
+  .verticalSliceNextStep {
+    font-size: 0.86rem;
+  }
+
+  .studioApplicationShell .canvasViewport,
+  .studioApplicationShell .canvas {
+    min-height: 220px;
+  }
+
+  .modelTypeDetail {
+    gap: 12px;
+    padding: 16px;
+  }
+
+  .modelTypeCard {
+    gap: 6px;
+    padding: 14px 16px;
+  }
+
+  .modelReferenceList {
+    margin: 0;
   }
 }
 
