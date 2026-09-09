@@ -4,17 +4,26 @@ import test from "node:test";
 import {
   BASELINE_CHARACTER_ACTIONS,
   CHARACTER_CAPABILITY_CONTRACT_VERSION,
+  STYLE_CONFIGURATION_SCHEMA,
+  STYLE_KIT_CONTRACT_VERSION,
   ModelTypeManifestError,
   ModelTypeRegistry,
+  StyleConfigurationError,
+  StyleKitContractError,
+  humanoidChibiStyleKitV1,
   humanoidChibiV1Manifest,
   modelTypeRegistry,
+  styleConfigurationFromPreset,
   validateModelTypeManifest,
+  validateStyleConfiguration,
+  validateStyleKitContract,
 } from "../src/index";
 
 const validFixture = {
   ...humanoidChibiV1Manifest,
   id: "fixture/example-v1",
   name: "Fixture Model",
+  styleKit: undefined,
   goldStandard: undefined,
 };
 
@@ -60,6 +69,78 @@ test("humanoid manifest declares the baseline semantic character action contract
   assert.equal(contract.semanticActions.find((action) => action.id === "neutral")?.implementationId, "a-pose");
   assert.equal(contract.semanticActions.find((action) => action.id === "idle")?.implementationId, "idle");
   assert.equal(contract.semanticActions.find((action) => action.id === "run")?.implementationId, null);
+});
+
+test("humanoid manifest declares a versioned reusable Chibi style kit", () => {
+  const styleKit = modelTypeRegistry.require("humanoid/chibi-v1").styleKit;
+  assert.ok(styleKit);
+  assert.equal(styleKit.contractVersion, STYLE_KIT_CONTRACT_VERSION);
+  assert.equal(styleKit.id, "humanoid/chibi-style-kit");
+  assert.equal(styleKit.rigId, "humanoid-basic-v1");
+  assert.equal(styleKit.defaultPresetId, "gold-standard");
+  assert.deepEqual(
+    styleKit.slots.map((slot) => slot.id),
+    ["body-shape", "head-shape", "eyes", "nose", "mouth", "ears", "hair", "torso-clothing", "hands", "feet"],
+  );
+  assert.ok(styleKit.controls.some((control) => control.id === "head-width"));
+  assert.ok(styleKit.controls.some((control) => control.id === "arm-length"));
+  assert.ok(styleKit.controls.every((control) => control.min <= control.default && control.default <= control.max));
+});
+
+test("gold-standard preset resolves to a complete reproducible style configuration", () => {
+  const configuration = styleConfigurationFromPreset(humanoidChibiStyleKitV1);
+  assert.equal(configuration.schema, STYLE_CONFIGURATION_SCHEMA);
+  assert.equal(configuration.styleKitId, humanoidChibiStyleKitV1.id);
+  assert.equal(configuration.styleKitVersion, humanoidChibiStyleKitV1.version);
+  assert.equal(configuration.modelTypeId, "humanoid/chibi-v1");
+  assert.equal(configuration.source, "preset");
+  assert.equal(configuration.selections.eyes, "vertical-oval");
+  assert.equal(configuration.parameters["head-width"], 1.02);
+  assert.equal(
+    Object.keys(configuration.parameters).length,
+    humanoidChibiStyleKitV1.controls.length,
+  );
+});
+
+test("style configurations reject unknown variants and out-of-range controls", () => {
+  const valid = styleConfigurationFromPreset(humanoidChibiStyleKitV1);
+  assert.throws(
+    () => validateStyleConfiguration(humanoidChibiStyleKitV1, {
+      ...valid,
+      source: "user",
+      selections: { ...valid.selections, eyes: "laser-eyes" },
+      parameters: { ...valid.parameters, "head-width": 9 },
+    }),
+    (error: unknown) => {
+      assert.ok(error instanceof StyleConfigurationError);
+      assert.match(error.message, /unknown variant 'laser-eyes'/);
+      assert.match(error.message, /head-width.*between 0.88 and 1.14/);
+      return true;
+    },
+  );
+});
+
+test("style kit contracts reject unknown affected slots and incompatible rig variants", () => {
+  assert.throws(
+    () => validateStyleKitContract({
+      ...humanoidChibiStyleKitV1,
+      slots: humanoidChibiStyleKitV1.slots.map((slot, index) => index === 0
+        ? {
+            ...slot,
+            variants: slot.variants.map((variant) => ({ ...variant, compatibleRigIds: ["some-other-rig"] })),
+          }
+        : slot),
+      controls: humanoidChibiStyleKitV1.controls.map((control, index) => index === 0
+        ? { ...control, affectedSlotIds: ["missing-slot"] }
+        : control),
+    }),
+    (error: unknown) => {
+      assert.ok(error instanceof StyleKitContractError);
+      assert.match(error.message, /must include style-kit rig 'humanoid-basic-v1'/);
+      assert.match(error.message, /references unknown slot 'missing-slot'/);
+      return true;
+    },
+  );
 });
 
 test("humanoid manifest preserves the approved gold-standard constraints", () => {
@@ -112,6 +193,21 @@ test("character manifests reject malformed functional roles", () => {
     (error: unknown) => {
       assert.ok(error instanceof ModelTypeManifestError);
       assert.match(error.message, /manifest\.expectedParts\[0\]\.functionalRoles\[0\]/);
+      return true;
+    },
+  );
+});
+
+test("manifest validation rejects style kits for another model or rig", () => {
+  assert.throws(
+    () => validateModelTypeManifest({
+      ...humanoidChibiV1Manifest,
+      styleKit: { ...humanoidChibiStyleKitV1, modelTypeId: "other/model", rigId: "other-rig" },
+    }),
+    (error: unknown) => {
+      assert.ok(error instanceof ModelTypeManifestError);
+      assert.match(error.message, /manifest\.styleKit\.modelTypeId/);
+      assert.match(error.message, /manifest\.styleKit\.rigId/);
       return true;
     },
   );
