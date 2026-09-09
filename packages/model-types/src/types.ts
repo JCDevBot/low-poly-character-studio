@@ -1,3 +1,8 @@
+import type {
+  FunctionalPartRole,
+  ModelTypeCharacterCapabilityContract,
+} from "./capability-contracts";
+
 export type ReferenceSlotId = "front" | "side" | "back" | string;
 export type OutputFormat = "glb" | string;
 
@@ -21,6 +26,7 @@ export interface ModelTypeExpectedPart {
   parentId: string | null;
   attachmentRole: "root" | "attached" | "surface";
   deformationRole: "rigid" | "skinned" | "presentation";
+  functionalRoles?: readonly FunctionalPartRole[];
 }
 
 export interface ModelTypePipelineImplementations {
@@ -57,6 +63,7 @@ export interface ModelTypeManifest {
   referenceSlots: readonly ModelTypeReferenceSlot[];
   analysisAdapter?: string | null;
   capabilities: ModelTypeCapabilities;
+  characterCapabilities?: ModelTypeCharacterCapabilityContract;
   expectedParts?: readonly ModelTypeExpectedPart[];
   implementations?: ModelTypePipelineImplementations;
   rig: string | null;

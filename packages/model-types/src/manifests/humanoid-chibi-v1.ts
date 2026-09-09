@@ -1,3 +1,4 @@
+import { defineBaselineCharacterActions } from "../capability-contracts";
 import type { ModelTypeManifest } from "../types";
 
 export const humanoidChibiV1Manifest = {
@@ -12,16 +13,24 @@ export const humanoidChibiV1Manifest = {
     { id: "back", label: "Back", required: false, description: "Optional back view for hair, clothing, and rear silhouette fidelity." },
   ],
   capabilities: { rigged: true, animated: true, materials: true },
+  characterCapabilities: {
+    contractVersion: "character-capability-contract/v1",
+    semanticActions: defineBaselineCharacterActions({
+      neutral: "a-pose",
+      idle: "idle",
+      walk: "walk",
+    }),
+  },
   expectedParts: [
-    { id: "body", label: "Body", required: true, parentId: null, attachmentRole: "root", deformationRole: "skinned" },
-    { id: "head", label: "Head", required: true, parentId: "body", attachmentRole: "attached", deformationRole: "skinned" },
-    { id: "hair", label: "Hair", required: true, parentId: "head", attachmentRole: "surface", deformationRole: "presentation" },
-    { id: "shirt", label: "A-frame undershirt", required: true, parentId: "body", attachmentRole: "surface", deformationRole: "skinned" },
-    { id: "briefs", label: "Boxer briefs", required: true, parentId: "body", attachmentRole: "surface", deformationRole: "skinned" },
-    { id: "left-arm", label: "Left arm", required: true, parentId: "body", attachmentRole: "attached", deformationRole: "skinned" },
-    { id: "right-arm", label: "Right arm", required: true, parentId: "body", attachmentRole: "attached", deformationRole: "skinned" },
-    { id: "left-leg", label: "Left leg", required: true, parentId: "body", attachmentRole: "attached", deformationRole: "skinned" },
-    { id: "right-leg", label: "Right leg", required: true, parentId: "body", attachmentRole: "attached", deformationRole: "skinned" },
+    { id: "body", label: "Body", required: true, parentId: null, attachmentRole: "root", deformationRole: "skinned", functionalRoles: ["core"] },
+    { id: "head", label: "Head", required: true, parentId: "body", attachmentRole: "attached", deformationRole: "skinned", functionalRoles: ["sensor", "articulator"] },
+    { id: "hair", label: "Hair", required: true, parentId: "head", attachmentRole: "surface", deformationRole: "presentation", functionalRoles: ["presentation"] },
+    { id: "shirt", label: "A-frame undershirt", required: true, parentId: "body", attachmentRole: "surface", deformationRole: "skinned", functionalRoles: ["presentation"] },
+    { id: "briefs", label: "Boxer briefs", required: true, parentId: "body", attachmentRole: "surface", deformationRole: "skinned", functionalRoles: ["presentation"] },
+    { id: "left-arm", label: "Left arm", required: true, parentId: "body", attachmentRole: "attached", deformationRole: "skinned", functionalRoles: ["articulator", "manipulator", "grasper"] },
+    { id: "right-arm", label: "Right arm", required: true, parentId: "body", attachmentRole: "attached", deformationRole: "skinned", functionalRoles: ["articulator", "manipulator", "grasper"] },
+    { id: "left-leg", label: "Left leg", required: true, parentId: "body", attachmentRole: "attached", deformationRole: "skinned", functionalRoles: ["locomotor", "support-contact", "articulator"] },
+    { id: "right-leg", label: "Right leg", required: true, parentId: "body", attachmentRole: "attached", deformationRole: "skinned", functionalRoles: ["locomotor", "support-contact", "articulator"] },
   ],
   implementations: {
     classification: "manual-or-deterministic-classifier-v1",
