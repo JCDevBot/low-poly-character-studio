@@ -100,9 +100,9 @@ assert.equal(describedBlob.bodyPlan.selected.value, 'compact/blob-amorphous')
 assert.ok(describedBlob.bodyPlan.candidates.find((candidate) => candidate.id === 'articulated/humanoid-bipedal')?.evidence.includes('user description supplies a weak directional prior'))
 
 const ambiguous = makeCharacterRaster(100, 140, (x, y) => {
-  const body = y >= 12 && y <= 104 && Math.abs(x - 50) <= 27
-  const leftSupport = y > 104 && y <= 128 && x >= 31 && x <= 46
-  const rightSupport = y > 104 && y <= 128 && x >= 54 && x <= 69
+  const body = y >= 10 && y <= 85 && Math.abs(x - 50) <= 25
+  const leftSupport = y > 85 && y <= 95 && x >= 36 && x <= 47
+  const rightSupport = y > 85 && y <= 95 && x >= 53 && x <= 64
   return body || leftSupport || rightSupport
 })
 const ambiguousResult = analyzeCharacterRaster(ambiguous)
