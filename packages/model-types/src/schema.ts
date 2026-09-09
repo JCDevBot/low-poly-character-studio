@@ -7,6 +7,11 @@ import {
   type ModelTypeSemanticActionDeclaration,
   type SemanticActionId,
 } from "./capability-contracts";
+import {
+  StyleKitContractError,
+  validateStyleKitContract,
+  type ModelTypeStyleKitContract,
+} from "./style-kit-contracts";
 import type {
   ModelTypeCapabilities,
   ModelTypeExpectedPart,
@@ -276,6 +281,22 @@ function validateCharacterCapabilities(
   };
 }
 
+function validateStyleKit(
+  value: unknown,
+  issues: ManifestValidationIssue[],
+): ModelTypeStyleKitContract | undefined {
+  if (value === undefined) return undefined;
+  try {
+    return validateStyleKitContract(value);
+  } catch (error) {
+    if (error instanceof StyleKitContractError) {
+      error.issues.forEach((issue) => issues.push({ path: `manifest.${issue.path}`, message: issue.message }));
+      return undefined;
+    }
+    throw error;
+  }
+}
+
 function validateImplementations(value: unknown, issues: ManifestValidationIssue[]): ModelTypePipelineImplementations | undefined {
   if (value === undefined) return undefined;
   if (!isRecord(value)) {
@@ -324,6 +345,7 @@ export function validateModelTypeManifest(input: unknown): ModelTypeManifest {
   const referenceSlots = validateReferenceSlots(input.referenceSlots, issues);
   const capabilities = validateCapabilities(input.capabilities, issues);
   const characterCapabilities = validateCharacterCapabilities(input.characterCapabilities, issues);
+  const styleKit = validateStyleKit(input.styleKit, issues);
   const expectedParts = validateExpectedParts(input.expectedParts, issues);
   const animations = validateStringArray(input.animations, "manifest.animations", issues);
   const output = validateStringArray(input.output, "manifest.output", issues);
@@ -333,6 +355,14 @@ export function validateModelTypeManifest(input: unknown): ModelTypeManifest {
   if (capabilities.rigged && !nonEmptyString(rig)) issues.push({ path: "manifest.rig", message: "is required when rigged capability is enabled" });
   if (capabilities.animated && animations.length === 0) issues.push({ path: "manifest.animations", message: "must not be empty when animated capability is enabled" });
   if (!referenceSlots.some((slot) => slot.required)) issues.push({ path: "manifest.referenceSlots", message: "must include at least one required slot" });
+  if (styleKit) {
+    if (styleKit.modelTypeId !== id) {
+      issues.push({ path: "manifest.styleKit.modelTypeId", message: `must equal manifest id '${id}'` });
+    }
+    if (!nonEmptyString(rig) || styleKit.rigId !== rig) {
+      issues.push({ path: "manifest.styleKit.rigId", message: `must equal manifest rig '${String(rig)}'` });
+    }
+  }
   if (characterCapabilities && expectedParts) {
     expectedParts.forEach((part, index) => {
       if (!part.functionalRoles || part.functionalRoles.length === 0) {
@@ -353,6 +383,7 @@ export function validateModelTypeManifest(input: unknown): ModelTypeManifest {
     referenceSlots,
     capabilities,
     characterCapabilities,
+    styleKit,
     expectedParts,
     implementations: validateImplementations(input.implementations, issues),
     rig: nonEmptyString(rig) ? rig : null,

@@ -1,4 +1,5 @@
 export { humanoidChibiV1Manifest } from "./manifests/humanoid-chibi-v1";
+export { humanoidChibiStyleKitV1 } from "./style-kits/humanoid-chibi-v1";
 export { ModelTypeRegistry, modelTypeRegistry } from "./registry";
 export {
   BASELINE_CHARACTER_ACTIONS,
@@ -10,6 +11,25 @@ export {
   type ModelTypeSemanticActionDeclaration,
   type SemanticActionId,
 } from "./capability-contracts";
+export {
+  STYLE_CONFIGURATION_SCHEMA,
+  STYLE_KIT_CONTRACT_VERSION,
+  StyleConfigurationError,
+  StyleKitContractError,
+  styleConfigurationFromPreset,
+  validateStyleConfiguration,
+  validateStyleKitContract,
+  type CharacterStyleConfiguration,
+  type ModelTypeStyleKitContract,
+  type StyleConfigurationSource,
+  type StyleKitControlDeclaration,
+  type StyleKitDeformationRole,
+  type StyleKitPresetDeclaration,
+  type StyleKitSlotDeclaration,
+  type StyleKitSlotKind,
+  type StyleKitValidationIssue,
+  type StyleKitVariantDeclaration,
+} from "./style-kit-contracts";
 export {
   ModelTypeManifestError,
   validateModelTypeManifest,
