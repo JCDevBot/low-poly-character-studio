@@ -4,15 +4,19 @@ import test from 'node:test'
 
 const cssUrl = new URL('./studio-simplification.css', import.meta.url)
 const mainUrl = new URL('./main.tsx', import.meta.url)
+const landingUrl = new URL('./LandingExperience.tsx', import.meta.url)
 const shellUrl = new URL('./StudioShell.tsx', import.meta.url)
 const readinessUrl = new URL('./VerticalSliceReadiness.tsx', import.meta.url)
 
-test('marketing page owns a real scroll container instead of clipping lower sections', async () => {
+test('marketing page owns a real scroll container and honors direct section links', async () => {
   const css = await readFile(cssUrl, 'utf8')
+  const landing = await readFile(landingUrl, 'utf8')
 
   assert.match(css, /\.landingExperience \{[\s\S]*height: 100dvh;[\s\S]*overflow-y: auto/)
   assert.match(css, /\.landingPipeline \{[\s\S]*scroll-margin-top: 72px/)
   assert.match(css, /@media \(max-height: 760px\)[\s\S]*\.landingPipeline \{[\s\S]*padding: 34px 0 26px/)
+  assert.match(landing, /window\.location\.hash\.slice\(1\)/)
+  assert.match(landing, /scrollIntoView\(\{ block: 'start', behavior: 'auto' \}\)/)
 })
 
 test('large-laptop Studio collapses workflow navigation and keeps task controls beside the canvas', async () => {
@@ -22,6 +26,8 @@ test('large-laptop Studio collapses workflow navigation and keeps task controls 
   assert.match(css, /@media \(max-width: 1399\.98px\)[\s\S]*\.guidedStepRail \{[\s\S]*position: fixed/)
   assert.match(css, /@media \(max-width: 1399\.98px\)[\s\S]*\.guidedStudioTopbarActions \.guidedMobileControl,[\s\S]*display: inline-flex/)
   assert.match(css, /\.guidedStudioStep--2 \.referenceWorkspace \.sidebar \.controls,[\s\S]*display: none/)
+  assert.match(css, /@media \(min-width: 992px\) and \(max-width: 1399\.98px\)[\s\S]*\.guidedStudioStep--2 \.referenceWorkspace \.referenceManager\.collapsed \{[\s\S]*width: min\(230px/)
+  assert.match(css, /\.guidedStudioStep--2 \.referenceWorkspace \.sidebar \{[\s\S]*padding-top: 66px/)
 })
 
 test('Studio chrome has one step heading and readiness appears only at review', async () => {
