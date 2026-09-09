@@ -75,7 +75,7 @@ test("humanoid manifest declares a versioned reusable Chibi style kit", () => {
   const styleKit = modelTypeRegistry.require("humanoid/chibi-v1").styleKit;
   assert.ok(styleKit);
   assert.equal(styleKit.contractVersion, STYLE_KIT_CONTRACT_VERSION);
-  assert.equal(styleKit.id, "humanoid/chibi-style-kit");
+  assert.equal(styleKit.id, "humanoid/chibi/style-kit");
   assert.equal(styleKit.rigId, "humanoid-basic-v1");
   assert.equal(styleKit.defaultPresetId, "gold-standard");
   assert.deepEqual(
@@ -198,11 +198,12 @@ test("character manifests reject malformed functional roles", () => {
   );
 });
 
-test("manifest validation rejects style kits for another model or rig", () => {
+test("manifest validation rejects a style kit attached to another model or rig", () => {
   assert.throws(
     () => validateModelTypeManifest({
       ...humanoidChibiV1Manifest,
-      styleKit: { ...humanoidChibiStyleKitV1, modelTypeId: "other/model", rigId: "other-rig" },
+      id: "other/model",
+      rig: "other-rig",
     }),
     (error: unknown) => {
       assert.ok(error instanceof ModelTypeManifestError);
