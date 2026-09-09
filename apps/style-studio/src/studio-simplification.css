@@ -119,6 +119,36 @@
   }
 }
 
+/* On the laptop marker workspace the collapsed reference control belongs to the
+   task rail. It must not float across the current-landmark header and canvas. */
+@media (min-width: 992px) and (max-width: 1399.98px) {
+  .guidedStudioStep--2 .referenceWorkspace .referenceManager.collapsed {
+    top: 10px;
+    left: 10px;
+    width: min(230px, calc(100% - 20px));
+    padding: 8px 10px;
+  }
+
+  .guidedStudioStep--2 .referenceWorkspace .referenceManager.collapsed .referenceManagerHeading {
+    gap: 6px;
+  }
+
+  .guidedStudioStep--2 .referenceWorkspace .referenceManager.collapsed .referenceManagerHeading h2 {
+    font-size: 12px;
+    letter-spacing: 0.08em;
+  }
+
+  .guidedStudioStep--2 .referenceWorkspace .referenceManager.collapsed .referenceManagerHeadingActions button {
+    padding: 7px 8px;
+    font-size: 12px;
+    white-space: nowrap;
+  }
+
+  .guidedStudioStep--2 .referenceWorkspace .sidebar {
+    padding-top: 66px;
+  }
+}
+
 /* Short laptop browser viewports need compact marketing sections, but they still
    scroll naturally instead of trying to squeeze the whole explanation on screen. */
 @media (max-height: 760px) and (min-width: 992px) {
